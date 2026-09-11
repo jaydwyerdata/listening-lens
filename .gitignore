@@ -1,0 +1,17 @@
+# Secrets and local config
+.env
+.snowflake/
+
+# Generated data, not committed by design (see docs/requirements.md NFR-2)
+data/
+*.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,102 @@
+# Listening Lens: Requirements
+
+**Status:** Draft
+**Date:** 2026-09-11
+**Author:** Jay
+
+## Purpose
+
+This is the requirements baseline for Listening Lens, a Snowflake Native App demo built to close a named skills gap on the "Road to Snowflake SE" plan (hands-on Native Apps Framework experience). It complements [`docs/adr/0001-architecture.md`](adr/0001-architecture.md), which covers the *why* behind the technical decisions. This document defines the *what*: the scope, the functional and non-functional requirements, and what is explicitly out of scope.
+
+## Goals
+
+1. Produce a working, installable Snowflake Native App that demonstrates the application package lifecycle, the setup script contract, application roles, and Streamlit-in-Snowflake, end to end.
+2. Demonstrate the Native App references/bind mechanism, the more advanced half of the framework that a bundled-data-only demo would skip.
+3. Produce a public repository, documented to a standard a hiring manager or SE interviewer can read and understand without a walkthrough.
+4. Produce a short recorded demo suitable for linking from a resume.
+5. Do all of the above without depending on anything outside Jay's control (data-export queues, Marketplace review, employer systems).
+
+## Non-Goals
+
+This is a solo portfolio demo, not a product. The following are explicitly out of scope, not oversights:
+
+- **Multi-tenant or concurrent-consumer support.** The app is built, installed, and demoed within one account by one person. No load testing, no concurrency handling.
+- **Cost optimization or production monitoring.** No warehouse right-sizing work, no alerting, no observability beyond what's needed to debug the build.
+- **Production-grade security hardening.** Privileges requested follow least-privilege practice (see NFR-5), but this is not a security review target and won't get one.
+- **Full Extended Streaming History ingestion in v1.** Supporting the official multi-year export format is a Phase 2/future item (FR-7), not required for the core demo.
+- **Any employer data, account, or tooling.** Everything runs on a personal trial account, entirely separate from Jay's actual job.
+
+## Personas
+
+Single persona for this demo: **Jay, acting as both provider and consumer of the same application**, in the same account. There is no separate end-user population. Requirements below are written as if a real consumer existed (for realism and to keep the app generalizable), but no multi-user testing is required.
+
+## Functional Requirements
+
+### Phase 1: Core demo (P0, must-have)
+
+**FR-1: Pull Spotify listening data**
+The system shall pull the user's recently-played tracks and top artists/tracks from the Spotify Web API and write them to a flattened dataset for Snowflake to load.
+- [ ] Given a registered Spotify Developer app and a valid OAuth token, when `pull_spotify_data.py` runs, then it writes a CSV with no missing required fields (track, artist, played-at timestamp, genre tags where available).
+- [ ] The script works against the developer's own account in Spotify's Development Mode, with no app review dependency.
+
+**FR-2: Load bundled sample data at install**
+The Native App's setup script shall load the bundled sample dataset into the application's own schema during installation.
+- [ ] After `snow app run` completes, the application's core schema contains the listening history table, populated and queryable from the app's own objects.
+
+**FR-3: Trends tab**
+The Streamlit "Trends" tab shall show top artists and genres over a selectable time window, a listening-by-hour-of-day heatmap, and the longest listening streak.
+- [ ] All three views render without error using the loaded dataset.
+- [ ] Changing the time window updates the displayed results.
+
+**FR-4: Discover tab**
+The Streamlit "Discover" tab shall generate a short natural-language taste summary using Cortex `COMPLETE`, built only from aggregated statistics, never raw per-track rows.
+- [ ] The summary is multiple coherent sentences and references at least one genre or artist pattern visible in the Trends tab.
+- [ ] The SQL passed to `COMPLETE` contains only aggregated fields; this is checked by reading the query, not just the output.
+
+**FR-5: Local install, no Marketplace dependency**
+The application shall install and run entirely within a single account acting as both provider and consumer.
+- [ ] `snow app run` and the following Streamlit session complete with no listing, review, or Marketplace-related step involved.
+
+### Phase 2: Bring-your-own-data (P1/P2)
+
+**FR-6 (P1): Consumer reference for listening history**
+The manifest shall define an optional Native App reference letting a consumer bind their own listening-history table instead of the bundled sample.
+- [ ] A consumer can grant the reference to a table matching the expected schema.
+- [ ] Once bound, the Trends and Discover tabs reflect the bound table's data instead of the bundled sample.
+- [ ] This path is demonstrated on its own (recording or write-up), not relied on for the main demo take, per the ADR's risk decision.
+
+**FR-7 (P2, future): Extended Streaming History ingestion**
+Support loading the official Spotify Extended Streaming History export (JSON) directly, enabling full multi-year history instead of the thin API-sourced window.
+- [ ] Not required for v1. Documented here so the schema design in FR-1/FR-2 doesn't accidentally make this harder later.
+
+## Non-Functional Requirements
+
+**NFR-1: Data boundary**
+Only the account owner's own data is processed. No employer accounts, systems, or data are touched at any point in build, test, or demo.
+- [ ] Repo and demo recording contain no references to employer account identifiers, warehouses, or data.
+
+**NFR-2: Portability**
+The project must be fully redeployable to a new Snowflake trial account using only what's committed to the repo, excluding local credentials and generated data files.
+- [ ] Following the README's "Redeploying to a new trial account" steps on a fresh trial account produces a working install with no undocumented manual steps.
+
+**NFR-3: Documentation standard**
+Every component is documented to a standard suitable for public portfolio review.
+- [ ] A reader unfamiliar with the project can understand what it does, why it was built this way, and how to run it, using only the repo's docs (README, this document, the ADR, the demo script).
+
+**NFR-4: Usability (qualitative)**
+The Streamlit page loads and responds without a noticeable delay for a single-user demo session.
+- [ ] No numeric target is set; this is a solo demo with no real user base or SLA. Judged by feel during the demo recording, re-recorded if something visibly lags.
+
+**NFR-5: Least privilege**
+Privileges requested by the app (the manifest's `privileges` block) are limited to what each feature actually needs, each carrying a stated description.
+- [ ] Every entry in the manifest's `privileges` block maps to a specific feature in this document; nothing is requested "just in case."
+
+## Open Questions
+
+- **OQ-1 (self, before recording):** Is the trial account's Cortex `COMPLETE` credit sufficient for repeated Discover-tab calls across development and multiple takes? Not resolved by documentation; check directly in the account early.
+- **OQ-2 (self, non-blocking):** Will the Extended Streaming History export land before recording? Doesn't block Phase 1 either way.
+- **OQ-3 (self, during Trends build):** Spotify's own genre tagging on artists is known to be inconsistent. Decide whether to use it as-is or derive a coarser genre grouping when FR-3 is built.
+
+## Timeline
+
+Open-ended. No external deadline is driving this build; phasing above (Phase 1 vs. Phase 2/future) exists to keep scope honest, not to hit a date.
