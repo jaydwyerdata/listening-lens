@@ -54,6 +54,37 @@ Confirmed against Snowflake's own trial account documentation: a trial account w
 
 Decision: add a payment method to the trial account rather than work around this in code, there's no code-level workaround for an account-tier policy gate. Checked first, from Snowflake's own docs, that this is low-risk: adding a payment method converts the trial to a paid account without ending the trial period, so existing free trial credits (400 USD on this account, essentially untouched) get drawn down first, and charges only start once those credits are exhausted or the 30-day trial period ends, whichever comes first. The one caveat worth documenting: trial/paid accounts can't be self-canceled through the web interface, closing one to guarantee zero further charges requires contacting Snowflake Support directly, it isn't a self-service toggle.
 
+## 2026-09-12: Discover tab confirmed working end to end
+
+Payment method added to the trial account. Reloaded the Discover tab and clicked "Generate summary" again: real Cortex output, no errors, a multi-sentence taste summary referencing actual top artists from the loaded data (Dan Gibson's Solitudes, Alex Warren, Gyptian), with a genre-thread observation and a suggested-artist recommendation, matching FR-4's acceptance criteria.
+
+This closes both remaining open items from the previous entry in one test: the trial-account restriction was the only real blocker (payment method resolved it, as expected from Snowflake's docs), and `llama3.1-8b` is confirmed available in this account's region, no model swap needed.
+
+Both tabs of the core demo (FR-1 through FR-5) are now confirmed working live against a real Snowflake account with real personal data. Remaining work is Phase 2 scope: the consumer reference/bind path (FR-6), not yet built, and the demo recording.
+
+## 2026-09-12: Discover tab, strengthened the recommendations
+
+The original prompt only asked Cortex to "suggest one direction to explore next," which produced a single throwaway artist mention buried at the end of the paragraph, thin for a tab literally called Discover. Reworked the prompt to explicitly ask for a separate `Recommendations:` section, three to four specific artist or song picks, each with a one-line reason, biased toward lesser-known or adjacent choices rather than the obvious mainstream pick for each genre.
+
+Still aggregation-only per FR-4: the model only ever sees the same five top-artist names as before, nothing new is exposed. Streamlit side now splits the response on `Recommendations:` into two sections (the taste summary, then a "You might also like" subheader), with a fallback to showing the raw response unsplit if the model doesn't follow the requested format exactly, since silently dropping content on a formatting assumption would be worse than an unsplit block of text. Not yet re-tested live against the account, that's the next step after redeploying.
+
+## 2026-09-12: Upgrading from trial to paid account triggered a mandatory MFA requirement
+
+Adding a payment method (to unblock Cortex, see above) converted the account from trial to paid, which brought Snowflake's own MFA enforcement policy into effect. This broke the existing `listening_lens2` connection profile's login flow for interactive CLI use, since it now stops on an MFA prompt each time rather than completing headlessly.
+
+Considered key-pair authentication first (the more established route), but switched to a Programmatic Access Token (PAT) instead, generated via Snowsight after setting up the account's required network policy. PATs are simpler to provision for a single local dev machine and don't need an RSA key pair generated and registered against the user.
+
+Two real mistakes made getting this working, both worth recording since they cost real debugging time:
+
+1. **Wrong mechanism assumed.** First attempt configured the new connection profile with `authenticator = "PROGRAMMATIC_ACCESS_TOKEN"` and a `token_file_path` field, based on a secondary source, not Snowflake's own documentation. This produced `Password is empty` on `snow connection test`, since neither field is real: Snowflake's own PAT documentation confirms a PAT is used as a drop-in replacement for the password itself, with the Python connector (which the `snow` CLI wraps) taking it via the plain `password` parameter, no special authenticator value or token-file mechanism involved. Lesson: verify CLI/connector-specific auth mechanisms against Snowflake's own docs directly, a plausible-sounding secondary source turned out to be wrong here.
+2. **TOML backslash escaping.** A separate, unrelated mistake while the wrong mechanism above was still in place: the `token_file_path` value was a double-quoted TOML string containing a literal Windows path (`"C:\Users\...`). TOML basic (double-quoted) strings treat backslash as an escape character, and `\U` is TOML's syntax for an 8-digit Unicode escape, so `\Users` was parsed as a broken Unicode escape, producing `Configuration file seems to be corrupted. Invalid unicode value`. Moot once the `token_file_path` field was removed entirely, but the general lesson holds for any future Windows path written into TOML: use forward slashes, or a single-quoted TOML literal string, never an unescaped backslash inside double quotes.
+
+Final working configuration: a new `listening_lens_pat` connection profile with `account`, `user`, and `password` (the PAT value) set directly, no special authenticator. `snow connection test -c listening_lens_pat` confirmed working. `snow app run` and related commands now use `-c listening_lens_pat` instead of `-c listening_lens2` going forward, avoiding the MFA prompt entirely for CLI use.
+
+One more wrinkle surfaced running `snow app run` with `--role listening_lens_role` against the new profile: `Role 'LISTENING_LENS_ROLE' specified in the connect string is not granted to this user`, despite the role genuinely being granted. Root cause, confirmed against Snowflake's own PAT documentation: a PAT is permanently bound to whichever role is active when it's generated (`ACCOUNTADMIN` in this case, matching the earlier `snow connection test` output), and `--role` can't override that at connection time regardless of what the user actually has granted elsewhere. Tokens can't be rescoped after creation, generating a new one scoped to `listening_lens_role` is the only way to change it.
+
+Bypassed rather than regenerating a token: ran `GRANT ROLE listening_lens_role TO ROLE ACCOUNTADMIN`, so `ACCOUNTADMIN` (the PAT's bound role) now inherits everything `listening_lens_role` had. Works, but worth being honest about the tradeoff: this is a real, permanent deviation from `bootstrap_account.sql`'s original design, which was a dedicated, narrower role for running the CLI rather than doing everything as `ACCOUNTADMIN`. Fine for a solo demo account with no other consumers; the "do it properly" fix, if it ever matters, is a second PAT scoped to `listening_lens_role` directly instead of widening `ACCOUNTADMIN`.
+
 ## Open as of this entry
 
-- Payment method not yet added. Once it is: does `COMPLETE` succeed, and is `llama3.1-8b` (pinned in `streamlit/listening_lens.py`) actually available in this account's region? Both confirmed or ruled out by the same next test.
+- None for the core (Phase 1) demo. Phase 2 (FR-6, the reference/bind path) has not been started.
