@@ -13,9 +13,12 @@ __pycache__/
 .venv/
 venv/
 
-# Snowflake CLI's local build-artifact mirror of the deploy stage, not source
-output/
-
 # OS
 .DS_Store
 Thumbs.db
+
+# Demo-prep materials: interview cue cards, kept private on purpose, never published
+# with the repo even after it goes public. See README "Demo prep" note.
+docs/demo-script.md
+docs/architecture-diagram.mmd
+docs/slide-outline.md

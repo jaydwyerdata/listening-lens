@@ -49,9 +49,10 @@ listening-lens/
     adr/0001-architecture.md
     requirements.md
     solution-design.md
-    demo-script.md
     build-log.md              # what actually happened running this live, vs. what the docs predicted
 ```
+
+Demo prep (speaking script, slide outline, architecture diagram used for interview prep) is kept locally, gitignored on purpose, not part of this repo. The engineering docs above are the public record; the cue cards for talking about it aren't.
 
 ## Why these choices
 
