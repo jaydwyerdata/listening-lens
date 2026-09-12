@@ -1,9 +1,17 @@
 -- Listening Lens: one-time account bootstrap.
 -- Run this once against any fresh Snowflake trial account before `snow app run`.
 -- Idempotent where Snowflake supports it, safe to re-run.
+--
+-- Known deviation from the portability design in the ADR/solution design docs:
+-- the GRANT below is hardcoded to a specific username (JayDai88) rather than a
+-- placeholder. Decided 2026-09-12 to leave it as-is for now since this is a
+-- single-account demo; revisit before the repo goes public or before handing
+-- this to anyone redeploying to their own trial account. Swap the literal
+-- username for <your_username> (and note the substitution in the README) at
+-- that point.
 
 CREATE ROLE IF NOT EXISTS listening_lens_role;
-GRANT ROLE listening_lens_role TO USER <your_username>;
+GRANT ROLE listening_lens_role TO USER JayDai88;
 
 CREATE WAREHOUSE IF NOT EXISTS listening_lens_wh
   WAREHOUSE_SIZE = 'XSMALL'

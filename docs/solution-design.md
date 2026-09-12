@@ -106,7 +106,7 @@ No personally identifying information beyond track and artist names, which is wh
 - A personal Spotify Developer app in Development Mode can call `recently-played` and top-items endpoints against the developer's own account immediately, without Spotify's app review process. Confirmed working 2026-09-12. The batch artist-lookup endpoint is not part of this assumption; it's confirmed unavailable (see the data model note on `genre_tags`).
 - The app owner's Spotify account has an active Premium subscription, which Spotify's February 2026 changes require for any Development Mode app. Not verifiable from documentation alone; the build working at all is the practical confirmation.
 - The trial account is created in a region with direct Cortex model support (avoiding a cross-region inference configuration step); if a future redeploy lands in an unsupported region, cross-region inference is the documented fallback.
-- Cortex `COMPLETE` trial credit is sufficient for development and demo-recording usage. Not confirmed from documentation; flagged as OQ-1 in the requirements doc, to be checked directly in the account.
+- Cortex `COMPLETE` is callable at all from a trial account. Proven false 2026-09-12: Snowflake's trial-account policy blocks Cortex AI function calls outright without a payment method on file, an account-tier restriction, not a credit-quota one (see OQ-1 in the requirements doc). The manifest's `snowflake_database` declaration and an explicit `GRANT DATABASE ROLE ... TO APPLICATION` were both necessary but not sufficient, this restriction sits above both. Mitigation in progress: adding a payment method to the trial account.
 
 ## 9. Risks
 
@@ -114,7 +114,7 @@ No personally identifying information beyond track and artist names, which is wh
 |---|---|---|
 | Spotify data-export queue (up to 30 days) blocks getting real history | Delays a "nice to have" upgrade, not the core build | API-sourced bundled dataset is the primary path; export is requested in parallel, not depended on |
 | Reference/bind path fails live during a recording | Wastes a take, undermines the more advanced feature's demo | Recorded separately from the main take, per ADR Option C |
-| Cortex credit or quota runs out mid-demo | Discover tab breaks on camera | Check credit early (OQ-1), keep a pre-recorded fallback clip of the Discover tab if needed |
+| Cortex `COMPLETE` is blocked for trial accounts without a payment method (realized 2026-09-12, OQ-1: confirmed an account-tier restriction, not a credit-quota one) | Discover tab cannot be demoed live until resolved | Add a payment method to the trial account, converts to paid without ending the trial period or its free credit balance per Snowflake's own docs; retest pending. Keep a pre-recorded fallback clip of the Discover tab as a backup for the actual recording regardless |
 | Genre data is realized as fully unavailable, not just sparse (confirmed 2026-09-12, OQ-3: 0 of 130 top-artists rows had a genre tag) | Would weaken the "real insight" moment in the demo script if genre had stayed a planned feature | Resolved by scope change, not workaround: FR-3 dropped the genre view as a requirement, Trends tab built around top artists, the heatmap, and streaks instead |
 
 ## 10. Traceability

@@ -1,7 +1,4 @@
 -- Listening Lens setup script. Runs automatically at install/upgrade.
--- Not yet run against a real account; see the TODO block below before trusting
--- the data-load step specifically. Everything else here follows the documented
--- pattern from Snowflake's own Native App tutorial and Streamlit-in-app guide.
 
 CREATE APPLICATION ROLE IF NOT EXISTS app_public;
 
@@ -17,30 +14,21 @@ CREATE TABLE IF NOT EXISTS core.listening_history (
     rank         NUMBER
 );
 
--- TODO, needs verifying against a real account: this is the one piece of this
--- script I don't have a confirmed pattern for. Two candidate approaches, from
--- two different Snowflake doc pages that didn't fully agree with each other:
+-- Loads the bundled sample CSV at install/upgrade time. Two candidate approaches
+-- existed for this (referencing the package's own bundled stage directly, vs.
+-- Snowflake's documented "share data content" pattern of a provider-populated
+-- table exposed via a secure view). Went with the stage reference below since it
+-- needed no change to the existing CSV pipeline; the column list in the CSV
+-- (data/listening_history.csv, written by scripts/pull_spotify_data.py) matches
+-- this table's column order exactly, confirmed 2026-09-12, so no explicit column
+-- mapping is needed here.
 --
--- (a) Reference the package's own bundled stage directly, something like:
---       COPY INTO core.listening_history
---       FROM @listening_lens_pkg.app_src.stage/data/listening_history.csv
---       FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"');
---     (app_src.stage is the default stage location per snowflake.yml; adjust
---     if that default doesn't match what `snow app run` actually creates.)
---
--- (b) Snowflake's documented "share data content" pattern instead treats
---     bundled data as a table created directly in a shared content schema
---     (populated by the provider before the version is created), exposed to
---     the app via a secure view, rather than a CSV loaded at setup time. See:
---     https://docs.snowflake.com/en/developer-guide/native-apps/preparing-data-content
---
--- Try (a) first, since it requires no change to the CSV pipeline already
--- built. Fall back to (b) if the stage reference doesn't resolve inside the
--- setup script's execution context.
---
--- COPY INTO core.listening_history
--- FROM @listening_lens_pkg.app_src.stage/data/listening_history.csv
--- FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"');
+-- Uncommented 2026-09-12 after confirming the table was created but staying
+-- empty on first install, since this block had been left commented out pending
+-- a live test. Verify data actually lands after the next `snow app run` upgrade.
+COPY INTO core.listening_history
+FROM @listening_lens_pkg.app_src.stage/data/listening_history.csv
+FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"');
 
 GRANT SELECT ON TABLE core.listening_history TO APPLICATION ROLE app_public;
 

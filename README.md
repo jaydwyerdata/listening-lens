@@ -23,7 +23,8 @@ Design rationale and options considered are in [`docs/adr/0001-architecture.md`]
 5. Copy `.env.example` to `.env`, fill in your Spotify Developer app's client ID/secret.
 6. `python scripts/pull_spotify_data.py`: pulls your recently-played and top-items data, writes `data/listening_history.csv`.
 7. `snow app run`: builds the application package, uploads artifacts, creates the app in your account.
-8. Open the app from Snowsight (Apps, then Listening Lens) to reach the Streamlit page.
+8. Run [`scripts/grant_cortex_access.sql`](scripts/grant_cortex_access.sql) once against your account (as `ACCOUNTADMIN` or another role with `MANAGE GRANTS`). The manifest's `snowflake_database` block only declares that the app wants Cortex access, it doesn't grant it, this is the separate consumer-side step that actually does.
+9. Open the app from Snowsight (Apps, then Listening Lens) to reach the Streamlit page.
 
 ## Project structure
 
@@ -38,8 +39,9 @@ listening-lens/
     listening_lens.py        # Trends + Discover tabs
     environment.yml           # Streamlit-in-Snowflake dependency file
   scripts/
-    bootstrap_account.sql    # one-time role/warehouse/privilege setup on a fresh account
-    pull_spotify_data.py     # one-time pull from the Spotify Web API
+    bootstrap_account.sql       # one-time role/warehouse/privilege setup on a fresh account
+    grant_cortex_access.sql     # one-time-per-install grant so the app can call Cortex
+    pull_spotify_data.py        # one-time pull from the Spotify Web API
     requirements.txt
   data/
     listening_history.csv    # generated, not committed
@@ -48,6 +50,7 @@ listening-lens/
     requirements.md
     solution-design.md
     demo-script.md
+    build-log.md              # what actually happened running this live, vs. what the docs predicted
 ```
 
 ## Why these choices
@@ -65,13 +68,16 @@ Application package lifecycle (`CREATE APPLICATION PACKAGE`, versioning, `CREATE
 Nothing here is tied to one Snowflake account. If a 30-day trial expires or a fresh one is cleaner for any reason:
 
 1. Sign up for a new trial, Enterprise edition, in a region with direct Cortex model support (see the ADR).
-2. Run `scripts/bootstrap_account.sql` against it.
+2. Run `scripts/bootstrap_account.sql` against it (update the hardcoded username first, see the comment at the top of that file).
 3. Add a new `snow` CLI connection profile for it.
 4. Re-run `scripts/pull_spotify_data.py` (Spotify data isn't tied to the Snowflake account, and isn't committed to the repo anyway).
 5. `snow app run`.
+6. Run `scripts/grant_cortex_access.sql` against the new account.
 
 Everything that defines the app (manifest, setup script, Streamlit code, project config) lives in this repo, so the account itself is disposable.
 
 ## Status
 
-The data pipeline is done and proven: `pull_spotify_data.py` runs cleanly against a real account (330 rows). `manifest.yml`, `setup_script.sql`, `snowflake.yml`, and the Streamlit app are drafted but not yet run against a live Snowflake account, since that requires the trial account (ADR action item 3), not yet created. Two specific pieces are flagged inline as unverified rather than assumed correct: how the setup script loads the bundled CSV, and how the manifest requests Cortex access. Both need a real `snow app run` to confirm, not more guessing.
+Installed and running against a real trial account. Confirmed live, in order: `snow app run` installs cleanly, the Trends tab renders real data (ten top artists, an hour-of-day distribution, a 4-day streak, all matching the actual pulled Spotify history), and `streamlit/environment.yml`'s minimal dependency file works with no errors.
+
+The Discover tab surfaced two real gaps, one fixed, one still open. First: the manifest's `snowflake_database: roles: - CORTEX_USER` block declares that the app wants Cortex access but doesn't grant it, so the first `COMPLETE` call failed with `Unknown user-defined function SNOWFLAKE.CORTEX.COMPLETE`. Fixed with `scripts/grant_cortex_access.sql`, a separate consumer-side grant, now part of the standard install steps above. Second, after that fix: `AI function COMPLETE is not available for trial accounts`, a Snowflake account-tier restriction, not a manifest, grant, or code problem, confirmed against Snowflake's own trial-account documentation. Adding a payment method to the trial account is the planned fix (converts to paid without ending the trial period or its free credit balance, per the same docs); not yet done. Whether that closes the gap, and whether the pinned Cortex model (`llama3.1-8b`) is available in this account's region, are the two remaining unverified items. Full narrative, including every error message hit along the way, is in [`docs/build-log.md`](docs/build-log.md).

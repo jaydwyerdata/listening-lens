@@ -36,27 +36,27 @@ Single persona for this demo: **Jay, acting as both provider and consumer of the
 
 **FR-1: Pull Spotify listening data**
 The system shall pull the user's recently-played tracks and top artists/tracks from the Spotify Web API and write them to a flattened dataset for Snowflake to load.
-- [ ] Given a registered Spotify Developer app and a valid OAuth token, when `pull_spotify_data.py` runs, then it writes a CSV with no missing required fields (track, artist, played-at timestamp; genre tags are captured where the API provides them, but are not required, see FR-3).
-- [ ] The script works against the developer's own account in Spotify's Development Mode, with no app review dependency.
+- [x] Given a registered Spotify Developer app and a valid OAuth token, when `pull_spotify_data.py` runs, then it writes a CSV with no missing required fields (track, artist, played-at timestamp; genre tags are captured where the API provides them, but are not required, see FR-3). Confirmed 2026-09-12: 330 real rows written.
+- [x] The script works against the developer's own account in Spotify's Development Mode, with no app review dependency. Confirmed 2026-09-12.
 
 **FR-2: Load bundled sample data at install**
 The Native App's setup script shall load the bundled sample dataset into the application's own schema during installation.
-- [ ] After `snow app run` completes, the application's core schema contains the listening history table, populated and queryable from the app's own objects.
+- [x] After `snow app run` completes, the application's core schema contains the listening history table, populated and queryable from the app's own objects. Confirmed live 2026-09-12, after fixing a commented-out `COPY INTO` step, see `docs/build-log.md`.
 
 **FR-3: Trends tab**
 The Streamlit "Trends" tab shall show top artists over a selectable time window, a listening-by-hour-of-day heatmap, and the longest listening streak. A genre breakdown is shown only when the loaded dataset actually has genre tags; it is not a required view (revised 2026-09-12: a live pull against Jay's own account returned genre tags for 0 of 130 top-artists rows, so this can't be a dependable feature; see OQ-3).
-- [ ] Top artists, the heatmap, and the streak view render without error using the loaded dataset.
-- [ ] Changing the time window updates the displayed results.
-- [ ] If genre tags are present in the loaded data, a genre view is shown; if not, the tab degrades cleanly with no broken or empty chart, and no error.
+- [x] Top artists, the heatmap, and the streak view render without error using the loaded dataset. Confirmed live 2026-09-12 with real Spotify data (ten top artists, an hour-of-day distribution, a 4-day streak).
+- [ ] Changing the time window updates the displayed results. Not yet exercised in testing, only the default window has been checked.
+- [x] If genre tags are present in the loaded data, a genre view is shown; if not, the tab degrades cleanly with no broken or empty chart, and no error. Moot in practice since genre tags are empty (OQ-3), the tab has no genre section at all, which is the clean-degrade outcome this criterion asks for.
 
 **FR-4: Discover tab**
 The Streamlit "Discover" tab shall generate a short natural-language taste summary using Cortex `COMPLETE`, built only from aggregated statistics, never raw per-track rows.
-- [ ] The summary is multiple coherent sentences and references at least one artist or listening-pattern insight visible in the Trends tab (a genre reference is a bonus, not required, per FR-3).
-- [ ] The SQL passed to `COMPLETE` contains only aggregated fields; this is checked by reading the query, not just the output.
+- [ ] The summary is multiple coherent sentences and references at least one artist or listening-pattern insight visible in the Trends tab (a genre reference is a bonus, not required, per FR-3). Blocked as of 2026-09-12: Snowflake's trial-account policy rejects Cortex AI function calls outright (`AI function COMPLETE is not available for trial accounts`), confirmed to be an account-tier gate, not a manifest, grant, or code issue, see `docs/build-log.md`. Decision made to add a payment method to the trial account to unblock this; retest pending.
+- [ ] The SQL passed to `COMPLETE` contains only aggregated fields; this is checked by reading the query, not just the output. Verified by code inspection (see `streamlit/listening_lens.py`), not yet verified against a live successful call since the call itself is still blocked.
 
 **FR-5: Local install, no Marketplace dependency**
 The application shall install and run entirely within a single account acting as both provider and consumer.
-- [ ] `snow app run` and the following Streamlit session complete with no listing, review, or Marketplace-related step involved.
+- [x] `snow app run` and the following Streamlit session complete with no listing, review, or Marketplace-related step involved. Confirmed live 2026-09-12.
 
 ### Phase 2: Bring-your-own-data (P1/P2)
 
@@ -94,7 +94,7 @@ Privileges requested by the app (the manifest's `privileges` block) are limited 
 
 ## Open Questions
 
-- **OQ-1 (self, before recording):** Is the trial account's Cortex `COMPLETE` credit sufficient for repeated Discover-tab calls across development and multiple takes? Not resolved by documentation; check directly in the account early.
+- **OQ-1, resolved 2026-09-12, and reframed:** the original question assumed the risk was credit sufficiency. The real answer, found by actually testing the Discover tab, is different and more fundamental: Snowflake's trial-account policy blocks Cortex AI function calls outright for a trial account with no payment method on file, this is an account-tier gate, not a usage-quota one, confirmed against Snowflake's own trial-account documentation. Decision: add a payment method to convert the trial to a paid account (without ending the trial period or its 400 USD free credit balance, per the same docs), rather than look for a code-level workaround, since none exists for an account-tier restriction. Not yet done as of this entry; see `docs/build-log.md` for the full diagnosis chain.
 - **OQ-2 (self, non-blocking):** Will the Extended Streaming History export land before recording? Doesn't block Phase 1 either way.
 - **OQ-3, resolved 2026-09-12, revised twice the same day:** first pass assumed Spotify's artist "genres" field was merely inconsistent (broken for many artists since January 2025, per Spotify's own developer community, with no fix or acknowledgment). Building the pull script surfaced something more specific: Spotify's February 2026 platform changes removed the "Get Several Artists" batch endpoint from Development Mode entirely, confirmed by a live 403 while running `pull_spotify_data.py`, so genre data for track-sourced rows (recently-played, top-tracks) isn't obtainable at all, leaving top-artists rows as the only remaining source. Then the actual data closed the question for good: a live pull against Jay's own account returned genre tags for 0 of 130 top-artists rows. Not "partial," not "sparse", empty. Final decision: `genre_tags` stays in the schema (in case Spotify fixes this later, and to document what was tried), but FR-3 no longer requires a genre view at all. The Trends tab is built around what the data actually supports: top artists, the hour-of-day heatmap, and listening streaks.
 - **New, discovered 2026-09-12:** Spotify's February 2026 changes also require the Development Mode app owner to hold an active Spotify Premium subscription. Not something the app can check or work around; noted here since it's a real account-level dependency, not a code path.
