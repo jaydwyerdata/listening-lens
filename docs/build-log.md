@@ -66,7 +66,9 @@ Both tabs of the core demo (FR-1 through FR-5) are now confirmed working live ag
 
 The original prompt only asked Cortex to "suggest one direction to explore next," which produced a single throwaway artist mention buried at the end of the paragraph, thin for a tab literally called Discover. Reworked the prompt to explicitly ask for a separate `Recommendations:` section, three to four specific artist or song picks, each with a one-line reason, biased toward lesser-known or adjacent choices rather than the obvious mainstream pick for each genre.
 
-Still aggregation-only per FR-4: the model only ever sees the same five top-artist names as before, nothing new is exposed. Streamlit side now splits the response on `Recommendations:` into two sections (the taste summary, then a "You might also like" subheader), with a fallback to showing the raw response unsplit if the model doesn't follow the requested format exactly, since silently dropping content on a formatting assumption would be worse than an unsplit block of text. Not yet re-tested live against the account, that's the next step after redeploying.
+Still aggregation-only per FR-4: the model only ever sees the same five top-artist names as before, nothing new is exposed. Streamlit side now splits the response on `Recommendations:` into two sections (the taste summary, then a "You might also like" subheader), with a fallback to showing the raw response unsplit if the model doesn't follow the requested format exactly, since silently dropping content on a formatting assumption would be worse than an unsplit block of text.
+
+Confirmed live after redeploying with the new `listening_lens_pat` connection profile: the model followed the requested format exactly, a four-sentence taste summary followed by a distinct "You might also like" section naming four specific artists (Kaidon, Yung Gud, The Black Seeds, L'indécis), each with a one-line reason tied back to the top-artist input. Both tabs of the core demo are now fully working end to end, including this refinement.
 
 ## 2026-09-12: Upgrading from trial to paid account triggered a mandatory MFA requirement
 

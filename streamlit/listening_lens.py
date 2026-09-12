@@ -10,18 +10,18 @@ pull, see OQ-3):
 - Discover: a short Cortex-generated taste summary, built only from aggregated
   stats computed here, never from raw per-track rows (FR-4's privacy rule).
 
-Not yet run inside a real Streamlit-in-Snowflake session. The SQL and Cortex
-call follow documented patterns, but this whole file needs a live smoke test
-once the app is installed, same as the rest of this build.
+Confirmed live 2026-09-12 against a real Streamlit-in-Snowflake session: both
+tabs render real data and the Cortex call succeeds. See docs/build-log.md for
+the two account-level issues that surfaced along the way (a missing
+application-level Cortex grant, and Snowflake's trial-account restriction on
+AI functions), neither of which needed a code change here.
 """
 
 import pandas as pd
 import streamlit as st
 from snowflake.snowpark.context import get_active_session
 
-# Verify this model is still available in your account/region before relying
-# on it; Cortex's supported model list changes over time and this is a
-# best-guess default, not a confirmed-working pin.
+# Confirmed available in this account's region, 2026-09-12.
 CORTEX_MODEL = "llama3.1-8b"
 
 session = get_active_session()
@@ -116,8 +116,13 @@ with discover_tab:
             "In three to four friendly sentences, describe the likely music "
             "taste of someone whose top five most-listened artists recently "
             f"are: {', '.join(top5)}. Mention a possible genre or mood thread "
-            "connecting them if one is plausible, and suggest one direction "
-            "they might enjoy exploring next."
+            "connecting them if one is plausible.\n\n"
+            "Then, on a new line starting with exactly 'Recommendations:', "
+            "suggest three to four specific artists or songs they likely "
+            "haven't heard yet that fit this taste, each on its own line in "
+            "the form 'Name - one-sentence reason why it fits'. Favor "
+            "lesser-known or adjacent picks over the most obvious mainstream "
+            "choice for each artist's genre."
         )
 
         if st.button("Generate summary"):
@@ -126,6 +131,19 @@ with discover_tab:
                     "SELECT SNOWFLAKE.CORTEX.COMPLETE(?, ?) AS summary",
                     params=[CORTEX_MODEL, prompt],
                 ).collect()
-            st.write(result[0]["SUMMARY"])
+            summary_text = result[0]["SUMMARY"]
+
+            # Split into the taste summary and the recommendations list if the
+            # model followed the requested format; fall back to showing the
+            # raw response if it didn't, rather than silently dropping content
+            # on a format assumption.
+            if "Recommendations:" in summary_text:
+                taste_part, rec_part = summary_text.split("Recommendations:", 1)
+                st.write(taste_part.strip())
+                st.subheader("You might also like")
+                st.write(rec_part.strip())
+            else:
+                st.write(summary_text)
+
             with st.expander("What was actually sent to Cortex"):
                 st.code(prompt)
