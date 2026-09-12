@@ -1,0 +1,34 @@
+# Native App manifest. Field reference:
+# https://docs.snowflake.com/en/developer-guide/native-apps/manifest-reference
+#
+# Paths below are relative to this file's own location once deployed (app/*
+# lands at the deploy root, per snowflake.yml).
+
+manifest_version: 2
+
+artifacts:
+  setup_script: setup_script.sql
+  readme: README.md
+  # Points at the schema.object the setup script creates with CREATE STREAMLIT,
+  # not a file path. See setup_script.sql.
+  default_streamlit: core.listening_lens_streamlit
+
+# TODO, needs verifying against a real account: calling Cortex COMPLETE from
+# inside a Native App may require requesting the CORTEX_USER database role via
+# a `snowflake_database` block here, separate from the `privileges` block below
+# (which is for privileges in the CONSUMER's account, not Snowflake's own
+# CORTEX_USER role). Cross-check against Snowflake's Cortex-in-Native-Apps docs
+# once the trial account exists, before assuming the Discover tab will work.
+#
+# snowflake_database:
+#   roles:
+#     - CORTEX_USER
+
+# No `privileges` block yet, left out entirely rather than set to an empty
+# list, since I'm not certain an empty list is valid here and omitting an
+# optional field is the safer guess. This app is self-contained (own schema,
+# own bundled data, one external call to Cortex), so there may genuinely be
+# nothing to ask the consumer for beyond what CREATE APPLICATION already
+# grants implicitly. Revisit once FR-6 (the optional reference to a consumer's
+# own table) is built; that needs its own `references` block, not added here
+# yet since it's Phase 2 (P1), not part of this core-demo pass.

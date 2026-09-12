@@ -1,0 +1,10 @@
+# Streamlit-in-Snowflake dependency file. Must sit alongside the main .py file
+# per Snowflake's docs. streamlit, pandas, and snowflake-snowpark-python ship
+# in the base runtime already; nothing extra is needed for this app's charts
+# (st.bar_chart etc. are built into Streamlit itself). Left minimal on purpose;
+# add packages here only if a real run actually errors on a missing import.
+name: app_environment
+channels:
+  - snowflake
+dependencies:
+  - python==3.10

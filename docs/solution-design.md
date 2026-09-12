@@ -75,7 +75,7 @@ flowchart LR
 2. The script flattens this into `data/listening_history.csv` (not committed to git; regenerated on demand, including after a redeploy to a new account).
 3. `snow app run` uploads the project's artifacts (manifest, setup script, Streamlit code, and a reference to the CSV via a stage) and creates or upgrades the application package.
 4. The setup script runs at install: creates the application role and `core` schema, loads the staged sample data into a table, defines the optional reference, and grants the application role usage on everything the Streamlit page needs.
-5. Opening the Streamlit page's Trends tab runs SQL aggregations directly against the loaded table.
+5. Opening the Streamlit page's Trends tab runs SQL aggregations directly against the loaded table: top artists, an hour-of-day heatmap, and listening streaks. A genre breakdown runs only if `genre_tags` actually has data; against Jay's own pulled dataset it currently does not (see the data model note below), so the tab's real feature set is the three that don't depend on it.
 6. Opening the Discover tab aggregates the same data further (top-line stats only), passes that aggregate, not raw rows, to Cortex `COMPLETE`, and displays the returned summary.
 7. Optionally, a consumer grants the defined reference to their own listening-history table (matching the expected schema); the app then reads from that table instead of the bundled one. This path is demonstrated separately, not as part of the main recorded demo (see the ADR's risk reasoning).
 
@@ -88,7 +88,7 @@ Single core table, `core.listening_history`, shape shared by both the bundled da
 | `played_at` | TIMESTAMP_NTZ, nullable | Real play timestamp for `recently_played` rows; null for ranking rows, which have no play event |
 | `track_name` | STRING, nullable | Null for `top_artists_*` rows, which rank artists, not specific tracks |
 | `artist_name` | STRING | |
-| `genre_tags` | ARRAY, populated only for `top_artists_*` rows | Spotify's February 2026 platform changes removed the batch artist-lookup endpoint from Development Mode, confirmed by a live 403 during build. That endpoint was the only path to genre data for a track-sourced row, so `recently_played` and `top_tracks_*` rows carry no genre tag at all, by design, not intermittently. Only `top_artists_*` rows have genres, sourced inline from a still-supported endpoint. See requirements OQ-3. |
+| `genre_tags` | ARRAY, in practice empty | Spotify's February 2026 platform changes removed the batch artist-lookup endpoint from Development Mode, confirmed by a live 403 during build, so `recently_played` and `top_tracks_*` rows carry no genre tag at all, by design. `top_artists_*` rows were meant to be the one surviving source, sourced inline from a still-supported endpoint, but a live pull returned genre tags for 0 of 130 such rows against Jay's own account. Kept in the schema for forward compatibility if Spotify fixes this; not something the Trends tab depends on. See requirements OQ-3. |
 | `source` | STRING | `recently_played`, `top_tracks_{short\|medium\|long}_term`, or `top_artists_{short\|medium\|long}_term` |
 | `rank` | INTEGER, nullable | Position (1-50) within a top-tracks/top-artists window; null for `recently_played` rows |
 
@@ -115,7 +115,7 @@ No personally identifying information beyond track and artist names, which is wh
 | Spotify data-export queue (up to 30 days) blocks getting real history | Delays a "nice to have" upgrade, not the core build | API-sourced bundled dataset is the primary path; export is requested in parallel, not depended on |
 | Reference/bind path fails live during a recording | Wastes a take, undermines the more advanced feature's demo | Recorded separately from the main take, per ADR Option C |
 | Cortex credit or quota runs out mid-demo | Discover tab breaks on camera | Check credit early (OQ-1), keep a pre-recorded fallback clip of the Discover tab if needed |
-| Genre tag inconsistency makes Trends output look sparse or odd | Weakens the "real insight" moment in the demo script | Decide on tag handling during FR-3 build (OQ-3), before the data is finalized |
+| Genre data is realized as fully unavailable, not just sparse (confirmed 2026-09-12, OQ-3: 0 of 130 top-artists rows had a genre tag) | Would weaken the "real insight" moment in the demo script if genre had stayed a planned feature | Resolved by scope change, not workaround: FR-3 dropped the genre view as a requirement, Trends tab built around top artists, the heatmap, and streaks instead |
 
 ## 10. Traceability
 

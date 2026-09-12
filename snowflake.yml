@@ -1,0 +1,29 @@
+# Snowflake CLI project definition. Drives `snow app run` (dev-mode install/upgrade)
+# and `snow app version create` (versioned release). Field reference:
+# https://docs.snowflake.com/en/developer-guide/snowflake-cli/native-apps/project-definitions
+#
+# Not yet run against a real account. Confirm this parses cleanly with
+# `snow app run` before assuming it's correct; the CLI's project-definition schema
+# has changed across versions, and this hasn't been validated live.
+
+definition_version: 2
+
+entities:
+  listening_lens_pkg:
+    type: application package
+    identifier: listening_lens_pkg
+    manifest: app/manifest.yml
+    artifacts:
+      - src: app/*
+        dest: ./
+      - src: streamlit/*
+        dest: streamlit/
+      - src: data/listening_history.csv
+        dest: data/listening_history.csv
+
+  listening_lens_app:
+    type: application
+    identifier: listening_lens_app
+    from:
+      target: listening_lens_pkg
+    debug: true

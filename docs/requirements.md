@@ -36,7 +36,7 @@ Single persona for this demo: **Jay, acting as both provider and consumer of the
 
 **FR-1: Pull Spotify listening data**
 The system shall pull the user's recently-played tracks and top artists/tracks from the Spotify Web API and write them to a flattened dataset for Snowflake to load.
-- [ ] Given a registered Spotify Developer app and a valid OAuth token, when `pull_spotify_data.py` runs, then it writes a CSV with no missing required fields (track, artist, played-at timestamp, genre tags where available).
+- [ ] Given a registered Spotify Developer app and a valid OAuth token, when `pull_spotify_data.py` runs, then it writes a CSV with no missing required fields (track, artist, played-at timestamp; genre tags are captured where the API provides them, but are not required, see FR-3).
 - [ ] The script works against the developer's own account in Spotify's Development Mode, with no app review dependency.
 
 **FR-2: Load bundled sample data at install**
@@ -44,13 +44,14 @@ The Native App's setup script shall load the bundled sample dataset into the app
 - [ ] After `snow app run` completes, the application's core schema contains the listening history table, populated and queryable from the app's own objects.
 
 **FR-3: Trends tab**
-The Streamlit "Trends" tab shall show top artists and genres over a selectable time window, a listening-by-hour-of-day heatmap, and the longest listening streak.
-- [ ] All three views render without error using the loaded dataset.
+The Streamlit "Trends" tab shall show top artists over a selectable time window, a listening-by-hour-of-day heatmap, and the longest listening streak. A genre breakdown is shown only when the loaded dataset actually has genre tags; it is not a required view (revised 2026-09-12: a live pull against Jay's own account returned genre tags for 0 of 130 top-artists rows, so this can't be a dependable feature; see OQ-3).
+- [ ] Top artists, the heatmap, and the streak view render without error using the loaded dataset.
 - [ ] Changing the time window updates the displayed results.
+- [ ] If genre tags are present in the loaded data, a genre view is shown; if not, the tab degrades cleanly with no broken or empty chart, and no error.
 
 **FR-4: Discover tab**
 The Streamlit "Discover" tab shall generate a short natural-language taste summary using Cortex `COMPLETE`, built only from aggregated statistics, never raw per-track rows.
-- [ ] The summary is multiple coherent sentences and references at least one genre or artist pattern visible in the Trends tab.
+- [ ] The summary is multiple coherent sentences and references at least one artist or listening-pattern insight visible in the Trends tab (a genre reference is a bonus, not required, per FR-3).
 - [ ] The SQL passed to `COMPLETE` contains only aggregated fields; this is checked by reading the query, not just the output.
 
 **FR-5: Local install, no Marketplace dependency**
@@ -95,7 +96,7 @@ Privileges requested by the app (the manifest's `privileges` block) are limited 
 
 - **OQ-1 (self, before recording):** Is the trial account's Cortex `COMPLETE` credit sufficient for repeated Discover-tab calls across development and multiple takes? Not resolved by documentation; check directly in the account early.
 - **OQ-2 (self, non-blocking):** Will the Extended Streaming History export land before recording? Doesn't block Phase 1 either way.
-- **OQ-3, resolved 2026-09-12, revised same day:** first pass assumed Spotify's artist "genres" field was merely inconsistent (broken for many artists since January 2025, per Spotify's own developer community, with no fix or acknowledgment). Building the pull script surfaced something more specific and more consequential: Spotify's February 2026 platform changes removed the "Get Several Artists" batch endpoint from Development Mode entirely, confirmed by a live 403 while running `pull_spotify_data.py`. That endpoint was the only way to get genre data for an artist encountered via a track (recently-played or top-tracks rows); it's not available at any reliability level now, not even a sometimes-empty one. Genre data survives only for top-artists rows, which get genres inline from a still-supported endpoint. Mitigation unchanged in spirit: FR-3's "top genres" view is a partial view built from top-artists rows only, not from the full listening history, and the Trends tab leans on top artists and the hour-of-day heatmap where genre coverage would otherwise be thin.
+- **OQ-3, resolved 2026-09-12, revised twice the same day:** first pass assumed Spotify's artist "genres" field was merely inconsistent (broken for many artists since January 2025, per Spotify's own developer community, with no fix or acknowledgment). Building the pull script surfaced something more specific: Spotify's February 2026 platform changes removed the "Get Several Artists" batch endpoint from Development Mode entirely, confirmed by a live 403 while running `pull_spotify_data.py`, so genre data for track-sourced rows (recently-played, top-tracks) isn't obtainable at all, leaving top-artists rows as the only remaining source. Then the actual data closed the question for good: a live pull against Jay's own account returned genre tags for 0 of 130 top-artists rows. Not "partial," not "sparse", empty. Final decision: `genre_tags` stays in the schema (in case Spotify fixes this later, and to document what was tried), but FR-3 no longer requires a genre view at all. The Trends tab is built around what the data actually supports: top artists, the hour-of-day heatmap, and listening streaks.
 - **New, discovered 2026-09-12:** Spotify's February 2026 changes also require the Development Mode app owner to hold an active Spotify Premium subscription. Not something the app can check or work around; noted here since it's a real account-level dependency, not a code path.
 
 ## Timeline
