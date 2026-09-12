@@ -1,6 +1,7 @@
 # Secrets and local config
 .env
 .snowflake/
+scripts/.cache-listening-lens
 
 # Generated data, not committed by design (see docs/requirements.md NFR-2)
 data/

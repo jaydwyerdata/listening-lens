@@ -81,15 +81,16 @@ flowchart LR
 
 ## 6. Data Model
 
-Single core table, `core.listening_history`, shape shared by both the bundled dataset and anything bound via the reference:
+Single core table, `core.listening_history`, shape shared by both the bundled dataset and anything bound via the reference. Revised from the original design once `pull_spotify_data.py` was actually built against the live API: two columns turned out to need to be nullable, because top-tracks/top-artists rows are rankings, not play events.
 
 | Column | Type | Notes |
 |---|---|---|
-| `played_at` | TIMESTAMP_NTZ | When the track was played |
-| `track_name` | STRING | |
+| `played_at` | TIMESTAMP_NTZ, nullable | Real play timestamp for `recently_played` rows; null for ranking rows, which have no play event |
+| `track_name` | STRING, nullable | Null for `top_artists_*` rows, which rank artists, not specific tracks |
 | `artist_name` | STRING | |
-| `genre_tags` | ARRAY | From Spotify's artist genre tags; see requirements OQ-3 on consistency |
-| `source` | STRING | `recently_played`, `top_short_term`, `top_medium_term`, or `top_long_term`, since these come from different API windows |
+| `genre_tags` | ARRAY, populated only for `top_artists_*` rows | Spotify's February 2026 platform changes removed the batch artist-lookup endpoint from Development Mode, confirmed by a live 403 during build. That endpoint was the only path to genre data for a track-sourced row, so `recently_played` and `top_tracks_*` rows carry no genre tag at all, by design, not intermittently. Only `top_artists_*` rows have genres, sourced inline from a still-supported endpoint. See requirements OQ-3. |
+| `source` | STRING | `recently_played`, `top_tracks_{short\|medium\|long}_term`, or `top_artists_{short\|medium\|long}_term` |
+| `rank` | INTEGER, nullable | Position (1-50) within a top-tracks/top-artists window; null for `recently_played` rows |
 
 No personally identifying information beyond track and artist names, which is what the whole app is about displaying. No employer data of any kind touches this schema.
 
@@ -102,7 +103,8 @@ No personally identifying information beyond track and artist names, which is wh
 
 ## 8. Assumptions
 
-- A personal Spotify Developer app in Development Mode can call `recently-played` and top-items endpoints against the developer's own account immediately, without Spotify's app review process.
+- A personal Spotify Developer app in Development Mode can call `recently-played` and top-items endpoints against the developer's own account immediately, without Spotify's app review process. Confirmed working 2026-09-12. The batch artist-lookup endpoint is not part of this assumption; it's confirmed unavailable (see the data model note on `genre_tags`).
+- The app owner's Spotify account has an active Premium subscription, which Spotify's February 2026 changes require for any Development Mode app. Not verifiable from documentation alone; the build working at all is the practical confirmation.
 - The trial account is created in a region with direct Cortex model support (avoiding a cross-region inference configuration step); if a future redeploy lands in an unsupported region, cross-region inference is the documented fallback.
 - Cortex `COMPLETE` trial credit is sufficient for development and demo-recording usage. Not confirmed from documentation; flagged as OQ-1 in the requirements doc, to be checked directly in the account.
 
