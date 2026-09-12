@@ -2,9 +2,10 @@
 # and `snow app version create` (versioned release). Field reference:
 # https://docs.snowflake.com/en/developer-guide/snowflake-cli/native-apps/project-definitions
 #
-# Not yet run against a real account. Confirm this parses cleanly with
-# `snow app run` before assuming it's correct; the CLI's project-definition schema
-# has changed across versions, and this hasn't been validated live.
+# Validated live 2026-09-12 against a fresh trial account (`snow` CLI 3.1.0):
+# parses cleanly and the package/stage naming below (listening_lens_pkg,
+# app_src.stage) matches what `snow app run` actually created. One fix needed
+# after a live error: the application entity's `debug` field, see below.
 
 definition_version: 2
 
@@ -26,4 +27,10 @@ entities:
     identifier: listening_lens_app
     from:
       target: listening_lens_pkg
-    debug: true
+    # `debug` defaults to true (per the CLI's project-definition docs), but a
+    # manifest_version: 2 app rejects debug mode outright: confirmed live
+    # 2026-09-12 via `snow app run` erroring with "Cannot use debug mode on an
+    # application when manifest version is 2 or above. Please use session
+    # debugging." Must be explicit false, not just omitted, since the default
+    # is true.
+    debug: false

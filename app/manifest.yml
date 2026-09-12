@@ -13,16 +13,20 @@ artifacts:
   # not a file path. See setup_script.sql.
   default_streamlit: core.listening_lens_streamlit
 
-# TODO, needs verifying against a real account: calling Cortex COMPLETE from
-# inside a Native App may require requesting the CORTEX_USER database role via
-# a `snowflake_database` block here, separate from the `privileges` block below
-# (which is for privileges in the CONSUMER's account, not Snowflake's own
-# CORTEX_USER role). Cross-check against Snowflake's Cortex-in-Native-Apps docs
-# once the trial account exists, before assuming the Discover tab will work.
-#
-# snowflake_database:
-#   roles:
-#     - CORTEX_USER
+# Confirmed 2026-09-12 against Snowflake's own manifest reference doc
+# (https://docs.snowflake.com/en/developer-guide/native-apps/manifest-reference#snowflake_database-field),
+# which gives this exact block as its own worked example for CORTEX_USER.
+# This is a separate mechanism from the `privileges` block below (which is for
+# privileges in the CONSUMER's account); `snowflake_database.roles` requests a
+# database/application role that lives in Snowflake's own SNOWFLAKE database,
+# reviewed and granted by the consumer the same way as account privileges.
+# Still to be confirmed live: whether this alone is sufficient, or whether
+# Cortex COMPLETE also needs IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE granted
+# some other way; test against the trial account once `snow app run` installs.
+snowflake_database:
+  roles:
+    - CORTEX_USER:
+        description: 'Required to call Snowflake Cortex AI functions from the Discover tab.'
 
 # No `privileges` block yet, left out entirely rather than set to an empty
 # list, since I'm not certain an empty list is valid here and omitting an

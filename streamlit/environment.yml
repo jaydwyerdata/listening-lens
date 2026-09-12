@@ -3,8 +3,21 @@
 # in the base runtime already; nothing extra is needed for this app's charts
 # (st.bar_chart etc. are built into Streamlit itself). Left minimal on purpose;
 # add packages here only if a real run actually errors on a missing import.
+#
+# Confirmed live 2026-09-12, in two steps:
+# 1. A double `==` here is not valid Anaconda-channel spec syntax and breaks
+#    the app at open time ("Anaconda dependency versions must be characters,
+#    numbers of one of [.+!] . =3.10 does not match this spec."). Conda-style
+#    specs use a single `=`.
+# 2. Fixing that to `python=3.10` (a documented-supported warehouse-runtime
+#    version per Snowflake's Streamlit dependency-management docs) still
+#    failed, this time with "Cannot create a Python function with the
+#    specified packages... Packages not found: python==3.10" - the Native
+#    App's bundled Streamlit doesn't resolve an explicit python pin the same
+#    way a standalone account-level Streamlit object does. Since nothing in
+#    this app needs a specific Python version, dropping the pin entirely and
+#    using the runtime default is the fix, not chasing a working pin syntax.
 name: app_environment
 channels:
   - snowflake
-dependencies:
-  - python==3.10
+dependencies: []
