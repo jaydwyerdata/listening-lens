@@ -13,6 +13,9 @@ __pycache__/
 .venv/
 venv/
 
+# Snowflake CLI's local build-artifact mirror of the deploy stage, not source
+output/
+
 # OS
 .DS_Store
 Thumbs.db
