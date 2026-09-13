@@ -116,9 +116,10 @@ Fix, in `streamlit/listening_lens.py`: introduced `PLAY_EVENT_SOURCES = ["recent
 
 Broader lesson for the build log: FR-7's acceptance criteria only checked that the parser produced correct output and that the table received it. Neither checked that the *application code consuming the table* actually used the new rows. A schema-level change (new `source` value) is invisible to any query that hardcodes a different `source` value, and that gap doesn't show up as an error, it shows up as a suspiciously unchanged number. Worth remembering for FR-6 (the reference/bind path) too, whenever that gets built: loading data correctly and using it correctly are two separate things to verify.
 
-Not yet done: rerun `snow app run` with both fixes in place, confirm the streak, hour-of-day, and top-artists numbers actually move, and confirm the Discover tab's Cortex summary now reflects real play-count-based top artists instead of Spotify's ranking.
+Re-ran `snow app run` with both fixes in place. Confirmed live: row count exactly 42,366 (no more duplication), longest streak now 87 days, Discover tab's Cortex call still succeeds at this scale. FR-7 and the FR-3/FR-4 re-verification are now closed out.
+
+One more real-data observation worth recording, not a bug: the top artists panel now surfaces Dan Gibson's Solitudes (ambient/relaxation music) prominently, real background listening (used to settle the kids), not a mistaken pick. Raw play count doesn't distinguish a deliberately chosen track from one left running continuously as background audio, both count the same way once a play clears the 30-second threshold. Not something FR-3 requires accounting for, and no fix planned, just noted here since it's the kind of nuance worth being able to explain if it comes up.
 
 ## Open as of this entry
 
-- Phase 2 (FR-6, the reference/bind path) has not been started.
-- Both fixes above (the `TRUNCATE` and the source-filtering rewrite) are written but not yet re-verified live. Re-run `snow app run` and check all three Trends panels plus the Discover tab.
+- Phase 2 (FR-6, the reference/bind path) has not been started. Everything else through FR-7 is confirmed working live.
