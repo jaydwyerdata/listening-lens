@@ -23,7 +23,7 @@ This is a solo portfolio demo, not a product. The following are explicitly out o
 - **Multi-tenant or concurrent-consumer support.** The app is built, installed, and demoed within one account by one person. No load testing, no concurrency handling.
 - **Cost optimization or production monitoring.** No warehouse right-sizing work, no alerting, no observability beyond what's needed to debug the build.
 - **Production-grade security hardening.** Privileges requested follow least-privilege practice (see NFR-5), but this is not a security review target and won't get one.
-- **Full Extended Streaming History ingestion in v1.** Supporting the official multi-year export format is a Phase 2/future item (FR-7), not required for the core demo.
+- **Full Extended Streaming History ingestion in v1.** Was scoped as a Phase 2/future item (FR-7) since the export could take up to 30 days. Revised 2026-09-13: it arrived before recording, so this line no longer holds. See FR-7 and OQ-2.
 - **Any employer data, account, or tooling.** Everything runs on a personal trial account, entirely separate from Jay's actual job.
 
 ## Personas
@@ -66,9 +66,12 @@ The manifest shall define an optional Native App reference letting a consumer bi
 - [ ] Once bound, the Trends and Discover tabs reflect the bound table's data instead of the bundled sample.
 - [ ] This path is demonstrated on its own (recording or write-up), not relied on for the main demo take, per the ADR's risk decision.
 
-**FR-7 (P2, future): Extended Streaming History ingestion**
+**FR-7 (pulled forward to P1, confirmed 2026-09-13): Extended Streaming History ingestion**
 Support loading the official Spotify Extended Streaming History export (JSON) directly, enabling full multi-year history instead of the thin API-sourced window.
-- [ ] Not required for v1. Documented here so the schema design in FR-1/FR-2 doesn't accidentally make this harder later.
+- [x] Export requested 2026-09-11, arrived 2026-09-13. Pulled forward from P2/future to P1 the same day it arrived: real multi-year history is a stronger demo than the bundled API sample, and delaying the recording to use it is cheaper than shipping the thinner dataset. Full reasoning in `docs/adr/0001-architecture.md`, Consequences section.
+- [x] `scripts/parse_extended_history.py` built and confirmed live against the real export: 131,935 raw audio rows across 13 files, 2018-06-04 to 2026-09-11. 103 rows dropped as podcast plays with no track/artist metadata. 89,466 rows (67.9% of the remaining rows) dropped for being under a 30-second played-duration threshold, treated as skips rather than counted plays; see `docs/solution-design.md` section 6 for the reasoning. 42,366 rows written to `data/listening_history.csv`, same schema and column order `pull_spotify_data.py` already produces.
+- [x] Bundled-vs-alongside decided: alongside was never actually necessary. The new script writes to the exact same `data/listening_history.csv` path `pull_spotify_data.py` does, so it's a drop-in replacement selected by which script you run, not a runtime toggle. No changes needed to `manifest.yml` or `setup_script.sql`.
+- [ ] Re-run `snow app run` against the extended-history CSV and re-verify the Trends and Discover tabs' existing acceptance criteria (FR-3, FR-4) at this larger scale; both were only confirmed against the roughly 330-row API sample.
 
 ## Non-Functional Requirements
 
@@ -95,7 +98,7 @@ Privileges requested by the app (the manifest's `privileges` block) are limited 
 ## Open Questions
 
 - **OQ-1, resolved 2026-09-12, and reframed:** the original question assumed the risk was credit sufficiency. The real answer, found by actually testing the Discover tab, is different and more fundamental: Snowflake's trial-account policy blocks Cortex AI function calls outright for a trial account with no payment method on file, this is an account-tier gate, not a usage-quota one, confirmed against Snowflake's own trial-account documentation. Fix: added a payment method to convert the trial to a paid account (without ending the trial period or its 400 USD free credit balance, per the same docs). Confirmed live afterward: `COMPLETE` succeeds and `llama3.1-8b` is available in this account's region. See `docs/build-log.md` for the full diagnosis chain.
-- **OQ-2 (self, non-blocking):** Will the Extended Streaming History export land before recording? Doesn't block Phase 1 either way.
+- **OQ-2, resolved 2026-09-13:** the export landed before recording (requested 2026-09-11). Inspecting it surfaced a real data-quality question that wasn't anticipated: 67.9% of raw play events were under 30 seconds long, essentially skips, not listens. Resolved by filtering on a 30-second played-duration threshold before loading; see FR-7 and `docs/solution-design.md` section 6.
 - **OQ-3, resolved 2026-09-12, revised twice the same day:** first pass assumed Spotify's artist "genres" field was merely inconsistent (broken for many artists since January 2025, per Spotify's own developer community, with no fix or acknowledgment). Building the pull script surfaced something more specific: Spotify's February 2026 platform changes removed the "Get Several Artists" batch endpoint from Development Mode entirely, confirmed by a live 403 while running `pull_spotify_data.py`, so genre data for track-sourced rows (recently-played, top-tracks) isn't obtainable at all, leaving top-artists rows as the only remaining source. Then the actual data closed the question for good: a live pull against Jay's own account returned genre tags for 0 of 130 top-artists rows. Not "partial," not "sparse", empty. Final decision: `genre_tags` stays in the schema (in case Spotify fixes this later, and to document what was tried), but FR-3 no longer requires a genre view at all. The Trends tab is built around what the data actually supports: top artists, the hour-of-day heatmap, and listening streaks.
 - **New, discovered 2026-09-12:** Spotify's February 2026 changes also require the Development Mode app owner to hold an active Spotify Premium subscription. Not something the app can check or work around; noted here since it's a real account-level dependency, not a code path.
 

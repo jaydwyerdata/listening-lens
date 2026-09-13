@@ -87,6 +87,24 @@ One more wrinkle surfaced running `snow app run` with `--role listening_lens_rol
 
 Bypassed rather than regenerating a token: ran `GRANT ROLE listening_lens_role TO ROLE ACCOUNTADMIN`, so `ACCOUNTADMIN` (the PAT's bound role) now inherits everything `listening_lens_role` had. Works, but worth being honest about the tradeoff: this is a real, permanent deviation from `bootstrap_account.sql`'s original design, which was a dedicated, narrower role for running the CLI rather than doing everything as `ACCOUNTADMIN`. Fine for a solo demo account with no other consumers; the "do it properly" fix, if it ever matters, is a second PAT scoped to `listening_lens_role` directly instead of widening `ACCOUNTADMIN`.
 
+## 2026-09-13: Extended Streaming History arrived, pulled FR-7 forward
+
+The export requested from Spotify's privacy settings on 2026-09-11 arrived today, a `my_spotify_data.zip` containing 13 `Streaming_History_Audio_*.json` files (2018 through 2026) and 4 `Streaming_History_Video_*.json` files. FR-7 (Extended Streaming History ingestion) was scoped as Phase 2/future specifically because this export could take up to 30 days, longer than a days-not-weeks build. It arrived before the demo was recorded, so that constraint no longer applied, decided to pull it forward and build the ingestion now rather than record with the thinner API-sourced sample.
+
+Inspected the export before writing any code, rather than assuming its shape matched the API-sourced data:
+
+- 131,935 raw audio rows total, no genre field anywhere (consistent with the existing gap, not a new one), but each row carries `conn_country` and `ip_addr`, real network-location data per play that the API-sourced rows never had. Decision: never read either field into the parser's output, keeping the same "track and artist names only" privacy boundary already documented in `docs/solution-design.md` section 7.
+- 103 rows had no `master_metadata_track_name`/`master_metadata_album_artist_name`: podcast plays that Spotify's export mixes into the audio history file. Dropped, this app is about music.
+- The video history files (443 rows total) were left unread entirely: different content type, out of scope for what the Trends and Discover tabs analyze.
+- The real surprise: 89,466 of the remaining 131,832 rows, 67.9%, had `ms_played` under 30 seconds. Spotify doesn't publish an official "what counts as a play" threshold, and the API-sourced data never surfaced this question at all (`recently_played` only returns tracks that already finished or were actively playing, `top_tracks`/`top_artists` are rankings with no per-play duration). Decided on a 30-second cutoff, the commonly cited industry figure, and to drop rows under it entirely rather than keep them with a flag, so the existing Trends tab queries (top artists, streaks) don't need to change to account for a mix of real and near-zero listens.
+
+Built `scripts/parse_extended_history.py`: pure standard library (json, csv, pathlib, zipfile), no network calls, accepts either the unzipped export folder or the `.zip` directly. Writes to the same `data/listening_history.csv` path and column order `pull_spotify_data.py` already produces (`played_at, track_name, artist_name, genre_tags, source, rank`, with `source = "extended_history"` and `rank` always null since these are play events, not rankings), so `manifest.yml` and `setup_script.sql` need zero changes. Running it overwrites whatever `data/listening_history.csv` currently holds; it doesn't merge with a prior `pull_spotify_data.py` run.
+
+Ran it against the real export: 42,366 rows written, spanning 2018-06-04 to 2026-09-11. Top artists shift meaningfully once the 30-second filter is applied (Dan Gibson's Solitudes jumps from 6th to 2nd by play count, for example), confirming the threshold decision actually matters and wasn't just a cosmetic filter.
+
+Not yet done: rebuilding the app against this CSV (`snow app run`) and re-verifying the Trends and Discover tabs at 42,366 rows instead of the ~330-row sample they were last confirmed against. Flagging this specifically since a 100x-plus jump in row count is exactly the kind of change that can surface a query that only worked by accident at small scale (an unindexed scan, an implicit row-count assumption in a chart call). Next step, not yet started.
+
 ## Open as of this entry
 
-- None for the core (Phase 1) demo. Phase 2 (FR-6, the reference/bind path) has not been started.
+- Phase 2 (FR-6, the reference/bind path) has not been started.
+- FR-7's ingestion script is built and confirmed correct on its own, but the app hasn't been rebuilt against its output yet. `snow app run`, then re-check the Trends and Discover tabs render correctly at 42,366 rows, is the next concrete step.

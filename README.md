@@ -21,7 +21,7 @@ Design rationale and options considered are in [`docs/adr/0001-architecture.md`]
 3. Add a `snow` CLI connection profile pointing at that account. This is local config, not part of the repo.
 4. `pip install -r scripts/requirements.txt`
 5. Copy `.env.example` to `.env`, fill in your Spotify Developer app's client ID/secret.
-6. `python scripts/pull_spotify_data.py`: pulls your recently-played and top-items data, writes `data/listening_history.csv`.
+6. `python scripts/pull_spotify_data.py`: pulls your recently-played and top-items data, writes `data/listening_history.csv`. If you've already requested Spotify's Extended Streaming History export from your account's privacy settings and it has arrived, run `python scripts/parse_extended_history.py path/to/export.zip` instead: same output file, no API auth needed, real multi-year history instead of a ~50-play window.
 7. `snow app run`: builds the application package, uploads artifacts, creates the app in your account.
 8. Run [`scripts/grant_cortex_access.sql`](scripts/grant_cortex_access.sql) once against your account (as `ACCOUNTADMIN` or another role with `MANAGE GRANTS`). The manifest's `snowflake_database` block only declares that the app wants Cortex access, it doesn't grant it, this is the separate consumer-side step that actually does.
 9. Open the app from Snowsight (Apps, then Listening Lens) to reach the Streamlit page.
@@ -42,6 +42,7 @@ listening-lens/
     bootstrap_account.sql       # one-time role/warehouse/privilege setup on a fresh account
     grant_cortex_access.sql     # one-time-per-install grant so the app can call Cortex
     pull_spotify_data.py        # one-time pull from the Spotify Web API
+    parse_extended_history.py   # alternative: parses Spotify's Extended Streaming History export
     requirements.txt
   data/
     listening_history.csv    # generated, not committed
@@ -83,4 +84,6 @@ Core demo (Phase 1) complete and confirmed live end to end against a real trial 
 
 `snow app run` installs cleanly, the Trends tab renders real data (ten top artists, an hour-of-day distribution, a 4-day streak, all matching the actual pulled Spotify history), and the Discover tab generates a real Cortex taste summary. Getting there surfaced two genuine gaps along the way, both resolved: the manifest's `snowflake_database: roles: - CORTEX_USER` block declares intent but doesn't grant the role (fixed with `scripts/grant_cortex_access.sql`, now part of the standard install steps above), and Snowflake's trial-account policy separately blocks Cortex AI function calls outright without a payment method on file, an account-tier restriction with no code workaround (fixed by adding a payment method). Full narrative, including every error message hit along the way, is in [`docs/build-log.md`](docs/build-log.md).
 
-Remaining work is Phase 2 scope: the consumer reference/bind path (FR-6, not yet started) and recording the demo.
+Update, 2026-09-13: Spotify's Extended Streaming History export arrived and was pulled into scope early (FR-7, was Phase 2/future). `scripts/parse_extended_history.py` parses it into the same schema `pull_spotify_data.py` produces: 42,366 real counted plays from 2018 to 2026, after dropping podcast rows and plays under a 30-second threshold (details in `docs/solution-design.md` section 6). Still to do: rebuild the app against this larger dataset and re-confirm the Trends and Discover tabs at that scale, they were only verified against the roughly 330-row API sample so far.
+
+Remaining work: the consumer reference/bind path (FR-6, not yet started), re-verifying Trends/Discover against the extended-history dataset (FR-7), and recording the demo.

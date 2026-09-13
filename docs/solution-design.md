@@ -68,11 +68,12 @@ flowchart LR
 | `streamlit/listening_lens.py` | Trends tab (SQL aggregation) and Discover tab (Cortex call) | Streamlit-in-Snowflake, Snowpark |
 | Cortex `COMPLETE` | Generates the natural-language taste summary from aggregated stats | Snowflake Cortex AI function |
 | `scripts/bootstrap_account.sql` | One-time role/warehouse/privilege setup on any fresh account, making the account itself disposable | SQL |
+| `scripts/parse_extended_history.py` | Alternative to `pull_spotify_data.py`: parses Spotify's Extended Streaming History export (once it arrives) into the same CSV schema and path, added 2026-09-13 | Python, standard library only |
 
 ## 5. Data Flow
 
-1. `pull_spotify_data.py` authenticates against the Spotify Web API (Development Mode, own account) and pulls recently-played tracks plus short/medium/long-term top artists and tracks.
-2. The script flattens this into `data/listening_history.csv` (not committed to git; regenerated on demand, including after a redeploy to a new account).
+1. `pull_spotify_data.py` authenticates against the Spotify Web API (Development Mode, own account) and pulls recently-played tracks plus short/medium/long-term top artists and tracks. Alternatively, once Spotify's Extended Streaming History export has arrived, `scripts/parse_extended_history.py` parses it directly, no API call or auth needed, and writes the same output.
+2. Either script flattens its source into `data/listening_history.csv` (not committed to git; regenerated on demand, including after a redeploy to a new account). Running one overwrites the other's output rather than merging with it.
 3. `snow app run` uploads the project's artifacts (manifest, setup script, Streamlit code, and a reference to the CSV via a stage) and creates or upgrades the application package.
 4. The setup script runs at install: creates the application role and `core` schema, loads the staged sample data into a table, defines the optional reference, and grants the application role usage on everything the Streamlit page needs.
 5. Opening the Streamlit page's Trends tab runs SQL aggregations directly against the loaded table: top artists, an hour-of-day heatmap, and listening streaks. A genre breakdown runs only if `genre_tags` actually has data; against Jay's own pulled dataset it currently does not (see the data model note below), so the tab's real feature set is the three that don't depend on it.
@@ -89,10 +90,16 @@ Single core table, `core.listening_history`, shape shared by both the bundled da
 | `track_name` | STRING, nullable | Null for `top_artists_*` rows, which rank artists, not specific tracks |
 | `artist_name` | STRING | |
 | `genre_tags` | ARRAY, in practice empty | Spotify's February 2026 platform changes removed the batch artist-lookup endpoint from Development Mode, confirmed by a live 403 during build, so `recently_played` and `top_tracks_*` rows carry no genre tag at all, by design. `top_artists_*` rows were meant to be the one surviving source, sourced inline from a still-supported endpoint, but a live pull returned genre tags for 0 of 130 such rows against Jay's own account. Kept in the schema for forward compatibility if Spotify fixes this; not something the Trends tab depends on. See requirements OQ-3. |
-| `source` | STRING | `recently_played`, `top_tracks_{short\|medium\|long}_term`, or `top_artists_{short\|medium\|long}_term` |
-| `rank` | INTEGER, nullable | Position (1-50) within a top-tracks/top-artists window; null for `recently_played` rows |
+| `source` | STRING | `recently_played`, `top_tracks_{short\|medium\|long}_term`, `top_artists_{short\|medium\|long}_term`, or `extended_history` (added 2026-09-13) |
+| `rank` | INTEGER, nullable | Position (1-50) within a top-tracks/top-artists window; null for `recently_played` and `extended_history` rows, since both are real play events, not rankings |
 
-No personally identifying information beyond track and artist names, which is what the whole app is about displaying. No employer data of any kind touches this schema.
+**Added 2026-09-13: `extended_history` rows.** Spotify's Extended Streaming History export (requested 2026-09-11, arrived 2026-09-13) is parsed by `scripts/parse_extended_history.py` into the same schema as the API-sourced rows above, so no table or column changes were needed. Two decisions came out of actually inspecting the real export, not from the design doc:
+
+- The export includes a separate `Streaming_History_Video_*.json` set (video content) alongside the audio history. Not read at all: out of scope for a music listening app, and a different content type than what the Trends and Discover tabs analyze.
+- Of 131,935 raw audio rows, 103 had no track/artist metadata (podcast plays that Spotify's export mixes into the audio history file) and were dropped. Of the remaining rows, 89,466 (67.9%) had `ms_played` under 30 seconds, essentially skips or previews rather than listens. There's no official Spotify-published threshold for what counts as a play; 30 seconds is the commonly cited industry figure and matches the intuitive line between "skipped past it" and "played it," so rows under it are dropped entirely rather than kept with a flag, to avoid changing the existing Trends tab queries. 42,366 rows survive both filters, spanning 2018-06-04 to 2026-09-11, a large jump from the roughly 330-row API-sourced sample.
+- `genre_tags` stays empty for `extended_history` rows too; the export has no genre field, consistent with the existing gap (OQ-3), not a new one.
+
+No personally identifying information beyond track and artist names, which is what the whole app is about displaying. No employer data of any kind touches this schema. The Extended Streaming History export additionally includes `conn_country` and `ip_addr` per row (Spotify logs the network location of each play); neither is read by the parser or written to the CSV, keeping the same privacy boundary as the API-sourced data.
 
 ## 7. Security and Privacy Considerations
 
