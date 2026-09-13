@@ -25,7 +25,18 @@ CREATE TABLE IF NOT EXISTS core.listening_history (
 --
 -- Uncommented 2026-09-12 after confirming the table was created but staying
 -- empty on first install, since this block had been left commented out pending
--- a live test. Verify data actually lands after the next `snow app run` upgrade.
+-- a live test.
+--
+-- TRUNCATE added 2026-09-13, a real bug found while verifying the Extended
+-- Streaming History load (FR-7): without it, every upgrade's COPY INTO just
+-- appends to whatever the table already had, since CREATE TABLE IF NOT EXISTS
+-- means the table survives across upgrades. Confirmed live: after replacing
+-- data/listening_history.csv with a 42,366-row extended-history export and
+-- re-running `snow app run`, the table held 42,696 rows, the new data plus
+-- the original 330-row bundled sample, never cleared. TRUNCATE makes each
+-- upgrade a clean reload instead of an accumulation.
+TRUNCATE TABLE core.listening_history;
+
 COPY INTO core.listening_history
 FROM @listening_lens_pkg.app_src.stage/data/listening_history.csv
 FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"');

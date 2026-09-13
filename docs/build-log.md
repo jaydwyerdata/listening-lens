@@ -104,7 +104,21 @@ Ran it against the real export: 42,366 rows written, spanning 2018-06-04 to 2026
 
 Not yet done: rebuilding the app against this CSV (`snow app run`) and re-verifying the Trends and Discover tabs at 42,366 rows instead of the ~330-row sample they were last confirmed against. Flagging this specifically since a 100x-plus jump in row count is exactly the kind of change that can surface a query that only worked by accident at small scale (an unindexed scan, an implicit row-count assumption in a chart call). Next step, not yet started.
 
+## 2026-09-13: extended history loaded, but two real bugs made it look like nothing changed
+
+Ran `snow app run` against the new `data/listening_history.csv` (42,366 rows). Trends tab loaded without error, but the "Longest streak" metric still read 4, identical to before, despite 8 years of real listening history now being loaded. That's not a plausible coincidence for a genuine 100x-plus jump in data, so treated it as a bug rather than an unlikely-but-possible result.
+
+Checked the table directly in Snowsight: `SELECT COUNT(*) FROM listening_lens_app.core.listening_history` returned 42,696, not 42,366. The difference, exactly 330, is the original bundled sample's row count. Root cause: `setup_script.sql`'s `COPY INTO` had no `TRUNCATE` before it, and `CREATE TABLE IF NOT EXISTS` means the table survives every upgrade. Every `snow app run` since the original install had been appending to the table, not replacing it. Fix: added `TRUNCATE TABLE core.listening_history;` immediately before the `COPY INTO`.
+
+That alone wouldn't have explained the unchanged streak, though, since even the old 330 rows sitting alongside the new 42,366 should have shifted a streak calculated over all of it. Read `streamlit/listening_lens.py` directly rather than guessing further: every query in the Trends and Discover tabs filtered to specific `source` values that predate FR-7 entirely. The longest-streak and hour-of-day logic filtered to `source = 'recently_played'` only (the ~50-row Web API sample); top artists and the Discover tab's input filtered to `source = 'top_artists_medium_term'` (Spotify's own pre-computed ranking). Neither code path had ever been touched when `extended_history` rows were added, so all 42,366 new rows were being loaded into the table and then completely ignored by every chart in the app.
+
+Fix, in `streamlit/listening_lens.py`: introduced `PLAY_EVENT_SOURCES = ["recently_played", "extended_history"]`, the set of sources that carry a real `played_at` timestamp, and rewrote top artists, hour-of-day, the streak, and the Discover tab's top-5 input to all read from that combined set instead of a single hardcoded source. This also meant reworking what the "time window" selector means: it used to select one of Spotify's own opaque `top_artists_{window}` ranking rows; now that real play-event timestamps exist at meaningful scale, it filters by actual elapsed days (28 / 182 / all-time) computed from `played_at` directly, which is both more transparent and no longer blind to whatever source the play events came from.
+
+Broader lesson for the build log: FR-7's acceptance criteria only checked that the parser produced correct output and that the table received it. Neither checked that the *application code consuming the table* actually used the new rows. A schema-level change (new `source` value) is invisible to any query that hardcodes a different `source` value, and that gap doesn't show up as an error, it shows up as a suspiciously unchanged number. Worth remembering for FR-6 (the reference/bind path) too, whenever that gets built: loading data correctly and using it correctly are two separate things to verify.
+
+Not yet done: rerun `snow app run` with both fixes in place, confirm the streak, hour-of-day, and top-artists numbers actually move, and confirm the Discover tab's Cortex summary now reflects real play-count-based top artists instead of Spotify's ranking.
+
 ## Open as of this entry
 
 - Phase 2 (FR-6, the reference/bind path) has not been started.
-- FR-7's ingestion script is built and confirmed correct on its own, but the app hasn't been rebuilt against its output yet. `snow app run`, then re-check the Trends and Discover tabs render correctly at 42,366 rows, is the next concrete step.
+- Both fixes above (the `TRUNCATE` and the source-filtering rewrite) are written but not yet re-verified live. Re-run `snow app run` and check all three Trends panels plus the Discover tab.
