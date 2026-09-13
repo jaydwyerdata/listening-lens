@@ -33,6 +33,22 @@ snowflake_database:
 # optional field is the safer guess. This app is self-contained (own schema,
 # own bundled data, one external call to Cortex), so there may genuinely be
 # nothing to ask the consumer for beyond what CREATE APPLICATION already
-# grants implicitly. Revisit once FR-6 (the optional reference to a consumer's
-# own table) is built; that needs its own `references` block, not added here
-# yet since it's Phase 2 (P1), not part of this core-demo pass.
+# grants implicitly.
+
+# FR-6, added 2026-09-13: optional reference so a consumer can bind their own
+# listening-history table instead of the bundled sample. Confirmed against
+# Snowflake's own reference docs (requesting-refs, sql-reference/references,
+# system_get_all_references) before writing this, not guessed at: a
+# single-valued TABLE reference needs a register_callback procedure the
+# framework (or the consumer directly, via CALL) invokes to bind/unbind it.
+# See app/setup_script.sql for that procedure and docs/adr/0001-architecture.md
+# for how the app resolves and queries whatever gets bound.
+references:
+  - listening_history_ref:
+      label: "Your own listening history table"
+      description: "Optional: bind a table of your own, matching the schema documented in the project README, instead of using the bundled sample data."
+      privileges:
+        - SELECT
+      object_type: TABLE
+      multi_valued: false
+      register_callback: core.register_single_reference

@@ -43,6 +43,36 @@ FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"');
 
 GRANT SELECT ON TABLE core.listening_history TO APPLICATION ROLE app_public;
 
+-- FR-6, added 2026-09-13: register_callback procedure for the optional
+-- listening_history_ref reference declared in manifest.yml. The framework
+-- (or a consumer directly, via CALL) invokes this to bind/unbind a
+-- consumer-owned table. Signature and body confirmed against Snowflake's own
+-- docs (developer-guide/native-apps/requesting-refs), not guessed: ADD/REMOVE
+-- go through SYSTEM$SET_REFERENCE/SYSTEM$REMOVE_REFERENCE, CLEAR removes every
+-- binding for the reference in one call.
+CREATE OR REPLACE PROCEDURE core.register_single_reference(
+    ref_name STRING, operation STRING, ref_or_alias STRING)
+    RETURNS STRING
+    LANGUAGE SQL
+    AS
+    $$
+    BEGIN
+        CASE (operation)
+            WHEN 'ADD' THEN
+                SELECT SYSTEM$SET_REFERENCE(:ref_name, :ref_or_alias);
+            WHEN 'REMOVE' THEN
+                SELECT SYSTEM$REMOVE_REFERENCE(:ref_name, :ref_or_alias);
+            WHEN 'CLEAR' THEN
+                SELECT SYSTEM$REMOVE_ALL_REFERENCES(:ref_name);
+            ELSE
+                RETURN 'unknown operation: ' || operation;
+        END CASE;
+        RETURN 'Success';
+    END;
+    $$;
+
+GRANT USAGE ON PROCEDURE core.register_single_reference(STRING, STRING, STRING) TO APPLICATION ROLE app_public;
+
 -- Streamlit page. Syntax confirmed against Snowflake's own "Add a Streamlit
 -- app" doc: https://docs.snowflake.com/en/developer-guide/native-apps/adding-streamlit
 CREATE OR REPLACE STREAMLIT core.listening_lens_streamlit

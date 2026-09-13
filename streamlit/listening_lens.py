@@ -25,7 +25,17 @@ whichever sources have them (recently_played and extended_history), and the
 time-window selector filters by actual date instead of relying on Spotify's
 own opaque top-items ranking windows. See docs/build-log.md, 2026-09-13
 entry, for the full diagnosis.
+
+Also added 2026-09-13: FR-6, the reference/bind path. load_history() now
+checks whether a consumer has bound listening_history_ref (via
+SYSTEM$GET_ALL_REFERENCES) and reads that table instead of the bundled
+sample when they have, with a caption showing which one is active. The
+Trends tab also gained a drill-through under Top artists: picking an artist
+shows the real underlying play rows for the selected window, live-queried
+from whichever table is actually loaded.
 """
+
+import json
 
 import pandas as pd
 import streamlit as st
@@ -57,22 +67,60 @@ st.title("Listening Lens")
 trends_tab, discover_tab = st.tabs(["Trends", "Discover"])
 
 
+def get_bound_reference_alias():
+    """FR-6, added 2026-09-13: resolves the alias Snowflake assigned to
+    whatever a consumer has bound to listening_history_ref, or None if
+    nothing is bound. Uses SYSTEM$GET_ALL_REFERENCES, confirmed against
+    Snowflake's own docs; returns a JSON array of {alias, database, schema,
+    name} when something is bound, an empty array otherwise.
+
+    Corrected 2026-09-13, live testing found the first version of this wrong:
+    querying the bound table by its literal fully-qualified name
+    (IDENTIFIER('db.schema.table')) fails with a misleading "database does
+    not exist" error, because the application has no general USAGE on the
+    consumer's database or schema, only the specific privilege captured by
+    the reference itself. The correct, privilege-safe way to query through a
+    reference is the framework's own reference() table function, which takes
+    the reference name and this alias, not a literal object name. See
+    docs/build-log.md, 2026-09-13 entry, for the full diagnosis."""
+    result = session.sql(
+        "SELECT SYSTEM$GET_ALL_REFERENCES('listening_history_ref', True) AS refs"
+    ).collect()
+    refs = json.loads(result[0]["REFS"])
+    return refs[0]["alias"] if refs else None
+
+
 @st.cache_data(ttl=600)
-def load_history() -> pd.DataFrame:
-    return session.table("core.listening_history").to_pandas()
+def load_history():
+    """Returns (dataframe, source_label). Reads the bound reference table if
+    a consumer has bound one (FR-6), otherwise falls back to the bundled
+    sample loaded at install/upgrade."""
+    alias = get_bound_reference_alias()
+    if alias:
+        df = session.sql(
+            f"SELECT * FROM reference('listening_history_ref', '{alias}')"
+        ).to_pandas()
+        return df, "your own bound table"
+    return session.table("core.listening_history").to_pandas(), "the bundled sample data"
+
+
+def filter_by_window(real_plays: pd.DataFrame, days) -> pd.DataFrame:
+    """Real plays within the last `days` (None = all time)."""
+    if days is None:
+        return real_plays
+    cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=days)
+    return real_plays[real_plays["PLAYED_AT"] >= cutoff]
 
 
 def top_artists_by_window(real_plays: pd.DataFrame, days) -> pd.Series:
     """Real play counts per artist within the last `days` (None = all time),
     descending. Replaces relying on Spotify's own top_artists_* ranking rows,
     which never reflected the Extended Streaming History import at all."""
-    if days is not None:
-        cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=days)
-        real_plays = real_plays[real_plays["PLAYED_AT"] >= cutoff]
-    return real_plays.groupby("ARTIST_NAME").size().sort_values(ascending=False)
+    return filter_by_window(real_plays, days).groupby("ARTIST_NAME").size().sort_values(ascending=False)
 
 
-history = load_history()
+history, data_source_label = load_history()
+st.caption(f"Currently showing: {data_source_label}.")
 
 real_plays = history[history["SOURCE"].isin(PLAY_EVENT_SOURCES)].copy()
 if not real_plays.empty:
@@ -90,7 +138,10 @@ with trends_tab:
         }[w],
     )
 
-    top_artists = top_artists_by_window(real_plays, WINDOW_DAYS[window]).head(10)
+    windowed_plays = filter_by_window(real_plays, WINDOW_DAYS[window])
+    top_artists = (
+        windowed_plays.groupby("ARTIST_NAME").size().sort_values(ascending=False).head(10)
+    )
 
     col1, col2 = st.columns(2)
 
@@ -101,6 +152,25 @@ with trends_tab:
         else:
             st.bar_chart(top_artists)
             st.caption("Real play counts for the selected window, most-played first.")
+
+            # Drill-through, added 2026-09-13: shows the real underlying play
+            # rows behind a bar in the chart above, live-queried from
+            # whichever table is actually loaded (bundled or bound via FR-6),
+            # not a static illustration.
+            drill_artist = st.selectbox(
+                "Drill into an artist's real plays",
+                options=top_artists.index.tolist(),
+            )
+            artist_plays = (
+                windowed_plays[windowed_plays["ARTIST_NAME"] == drill_artist]
+                .sort_values("PLAYED_AT", ascending=False)[["PLAYED_AT", "TRACK_NAME", "SOURCE"]]
+                .head(200)
+            )
+            st.dataframe(artist_plays, hide_index=True, use_container_width=True)
+            st.caption(
+                f"{len(artist_plays):,} real plays for {drill_artist} in this window "
+                f"(showing up to 200, most recent first)."
+            )
 
     with col2:
         st.subheader("Listening by hour of day")

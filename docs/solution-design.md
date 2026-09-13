@@ -69,6 +69,8 @@ flowchart LR
 | Cortex `COMPLETE` | Generates the natural-language taste summary from aggregated stats | Snowflake Cortex AI function |
 | `scripts/bootstrap_account.sql` | One-time role/warehouse/privilege setup on any fresh account, making the account itself disposable | SQL |
 | `scripts/parse_extended_history.py` | Alternative to `pull_spotify_data.py`: parses Spotify's Extended Streaming History export (once it arrives) into the same CSV schema and path, added 2026-09-13 | Python, standard library only |
+| `core.register_single_reference` (in `setup_script.sql`) | FR-6 callback procedure the framework invokes to bind/unbind a consumer table against `listening_history_ref`, added 2026-09-13 | SQL, `SYSTEM$SET_REFERENCE`/`SYSTEM$REMOVE_REFERENCE`/`SYSTEM$REMOVE_ALL_REFERENCES` |
+| `scripts/test_fr6_reference_bind.sql` | One-time local test fixture: a small, obviously-distinct table plus the bind/unbind/cleanup statements used to confirm FR-6 end to end, added 2026-09-13 | SQL, not part of the app itself |
 
 ## 5. Data Flow
 
@@ -81,6 +83,8 @@ flowchart LR
    **Revised 2026-09-13:** originally this filtered to `source = 'recently_played'` and `source = 'top_artists_{window}'`, which was correct when those were the only sources with real play events or rankings. Loading the Extended Streaming History (FR-7) added a much larger `extended_history` source, but nothing here was updated to read it, so the new data sat in the table completely unused, a bug caught by a longest-streak number that didn't move after loading years of new data. Fixed by filtering to any source with a real `played_at` timestamp, and by replacing the old ranking-window selector with a real date-based one now that real timestamps exist at scale. See `docs/build-log.md`.
 6. Opening the Discover tab aggregates the same data further (top-line stats only), passes that aggregate, not raw rows, to Cortex `COMPLETE`, and displays the returned summary.
 7. Optionally, a consumer grants the defined reference to their own listening-history table (matching the expected schema); the app then reads from that table instead of the bundled one. This path is demonstrated separately, not as part of the main recorded demo (see the ADR's risk reasoning).
+
+   **Added and confirmed live 2026-09-13:** `load_history()` calls `SYSTEM$GET_ALL_REFERENCES('listening_history_ref', True)` to check whether a consumer has bound a table, and if so, reads it via `SELECT * FROM reference('listening_history_ref', alias)`, Snowflake's dedicated table function for querying through a reference. Querying by the bound table's literal fully-qualified name instead (`IDENTIFIER('db.schema.table')`) was tried first and fails: the application object has no general USAGE on the consumer's database or schema, only the specific privilege the reference itself captured, so `reference()` exists precisely to read through that narrower grant. See `docs/build-log.md`, 2026-09-13 entry, for the full diagnosis, including a separate `GRANT MONITOR` vs. `GRANT USAGE` grant mistake hit along the way. The Trends tab's Top artists panel also gained a drill-through the same day: selecting an artist shows the real underlying play rows for the current window, live-queried from whichever table is actually loaded.
 
 ## 6. Data Model
 
@@ -122,7 +126,7 @@ No personally identifying information beyond track and artist names, which is wh
 | Risk | Impact | Mitigation |
 |---|---|---|
 | Spotify data-export queue (up to 30 days) blocks getting real history | Delays a "nice to have" upgrade, not the core build | API-sourced bundled dataset is the primary path; export is requested in parallel, not depended on |
-| Reference/bind path fails live during a recording | Wastes a take, undermines the more advanced feature's demo | Recorded separately from the main take, per ADR Option C |
+| Reference/bind path fails live during a recording | Wastes a take, undermines the more advanced feature's demo | Recorded separately from the main take, per ADR Option C. Built and confirmed live 2026-09-13, bind and unbind both verified against a throwaway test table before recording; see `docs/build-log.md` |
 | Cortex `COMPLETE` is blocked for trial accounts without a payment method (realized 2026-09-12, OQ-1: confirmed an account-tier restriction, not a credit-quota one) | Discover tab could not be demoed live until resolved | Resolved 2026-09-12: added a payment method to the trial account. Confirmed live afterward that `COMPLETE` succeeds. Still worth keeping a pre-recorded fallback clip of the Discover tab as a backup for the actual recording, live AI calls can be flaky on a single take regardless of account tier |
 | Genre data is realized as fully unavailable, not just sparse (confirmed 2026-09-12, OQ-3: 0 of 130 top-artists rows had a genre tag) | Would weaken the "real insight" moment in the demo script if genre had stayed a planned feature | Resolved by scope change, not workaround: FR-3 dropped the genre view as a requirement, Trends tab built around top artists, the heatmap, and streaks instead |
 

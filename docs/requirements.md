@@ -62,9 +62,9 @@ The application shall install and run entirely within a single account acting as
 
 **FR-6 (P1): Consumer reference for listening history**
 The manifest shall define an optional Native App reference letting a consumer bind their own listening-history table instead of the bundled sample.
-- [ ] A consumer can grant the reference to a table matching the expected schema.
-- [ ] Once bound, the Trends and Discover tabs reflect the bound table's data instead of the bundled sample.
-- [ ] This path is demonstrated on its own (recording or write-up), not relied on for the main demo take, per the ADR's risk decision.
+- [x] A consumer can grant the reference to a table matching the expected schema. Confirmed live 2026-09-13 with `scripts/test_fr6_reference_bind.sql`, a 5-row throwaway table bound via `SYSTEM$REFERENCE` and the app's `register_single_reference` callback.
+- [x] Once bound, the Trends and Discover tabs reflect the bound table's data instead of the bundled sample. Confirmed live: the bound 5-row test table showed correctly (its two distinct artists, a short streak), and unbinding (`CLEAR`) fell back cleanly to the full 42,366-row bundled data. Two real bugs surfaced and were fixed getting here, a missing grant and a query-mechanism mistake in this app's own code; see `docs/build-log.md`, 2026-09-13 entry.
+- [x] This path is demonstrated on its own (recording or write-up), not relied on for the main demo take, per the ADR's risk decision. Also gained an artist drill-through in the Trends tab the same day (select an artist, see the real underlying play rows for the current window), added because testing FR-6 made the lack of one obvious.
 
 **FR-7 (pulled forward to P1, confirmed 2026-09-13): Extended Streaming History ingestion**
 Support loading the official Spotify Extended Streaming History export (JSON) directly, enabling full multi-year history instead of the thin API-sourced window.
