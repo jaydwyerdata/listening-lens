@@ -33,10 +33,21 @@ sample when they have, with a caption showing which one is active. The
 Trends tab also gained a drill-through under Top artists: picking an artist
 shows the real underlying play rows for the selected window, live-queried
 from whichever table is actually loaded.
+
+Revised 2026-10-07, two display bugs caught reviewing the app before
+recording: st.bar_chart sorts its x axis alphabetically, so Top artists read
+A to Z despite a caption saying "most-played first" (now an Altair chart
+sorted by play count); and hour of day and the streak were computed on raw
+UTC timestamps, which put an all-night listening gap in the middle of the
+afternoon (both now use DISPLAY_TIMEZONE). Window cutoffs stay in UTC, since
+they compare instants, not local clock times.
 """
+
+import datetime
 
 import json
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 from snowflake.snowpark.context import get_active_session
@@ -58,6 +69,15 @@ PLAY_EVENT_SOURCES = ["recently_played", "extended_history"]
 # actual date-based window ourselves is both more transparent and no longer
 # blind to the extended history. None means no cutoff, all real plays.
 WINDOW_DAYS = {"short_term": 28, "medium_term": 182, "long_term": None}
+
+# Spotify's export timestamps (`ts`) are UTC. Hour-of-day and day boundaries
+# only mean something in the listener's own local time, so those views
+# convert to this zone first. A config value, not a hard-coded assumption
+# baked into the queries; change it here for a listener elsewhere.
+DISPLAY_TIMEZONE = "Australia/Brisbane"
+# Fallback if the runtime has no tz database: Brisbane observes no daylight
+# saving, so a fixed UTC+10 offset is exact for this zone specifically.
+DISPLAY_TIMEZONE_FALLBACK = datetime.timezone(datetime.timedelta(hours=10))
 
 session = get_active_session()
 
@@ -125,6 +145,12 @@ st.caption(f"Currently showing: {data_source_label}.")
 real_plays = history[history["SOURCE"].isin(PLAY_EVENT_SOURCES)].copy()
 if not real_plays.empty:
     real_plays["PLAYED_AT"] = pd.to_datetime(real_plays["PLAYED_AT"], utc=True)
+    try:
+        real_plays["PLAYED_AT_LOCAL"] = real_plays["PLAYED_AT"].dt.tz_convert(DISPLAY_TIMEZONE)
+    except Exception:
+        real_plays["PLAYED_AT_LOCAL"] = real_plays["PLAYED_AT"].dt.tz_convert(
+            DISPLAY_TIMEZONE_FALLBACK
+        )
 
 with trends_tab:
     window = st.selectbox(
@@ -150,7 +176,17 @@ with trends_tab:
         if top_artists.empty:
             st.info("No plays loaded for this window yet.")
         else:
-            st.bar_chart(top_artists)
+            top_artists_df = top_artists.rename_axis("Artist").reset_index(name="Plays")
+            st.altair_chart(
+                alt.Chart(top_artists_df)
+                .mark_bar()
+                .encode(
+                    x=alt.X("Artist:N", sort="-y", title=None),
+                    y=alt.Y("Plays:Q"),
+                    tooltip=["Artist", "Plays"],
+                ),
+                use_container_width=True,
+            )
             st.caption("Real play counts for the selected window, most-played first.")
 
             # Drill-through, added 2026-09-13: shows the real underlying play
@@ -163,7 +199,8 @@ with trends_tab:
             )
             artist_plays = (
                 windowed_plays[windowed_plays["ARTIST_NAME"] == drill_artist]
-                .sort_values("PLAYED_AT", ascending=False)[["PLAYED_AT", "TRACK_NAME", "SOURCE"]]
+                .sort_values("PLAYED_AT", ascending=False)[["PLAYED_AT_LOCAL", "TRACK_NAME", "SOURCE"]]
+                .rename(columns={"PLAYED_AT_LOCAL": "PLAYED_AT"})
                 .head(200)
             )
             st.dataframe(artist_plays, hide_index=True, use_container_width=True)
@@ -178,18 +215,20 @@ with trends_tab:
             st.info("No play-event data loaded yet.")
         else:
             by_hour = (
-                real_plays.groupby(real_plays["PLAYED_AT"].dt.hour)
+                real_plays.groupby(real_plays["PLAYED_AT_LOCAL"].dt.hour)
                 .size()
                 .reindex(range(24), fill_value=0)
             )
             st.bar_chart(by_hour)
-            st.caption(f"Based on {len(real_plays):,} real plays, all time.")
+            st.caption(
+                f"Based on {len(real_plays):,} real plays, all time, in {DISPLAY_TIMEZONE} time."
+            )
 
     st.subheader("Longest streak")
     if real_plays.empty:
         st.info("No play-event data loaded yet.")
     else:
-        play_dates = sorted(set(real_plays["PLAYED_AT"].dt.date))
+        play_dates = sorted(set(real_plays["PLAYED_AT_LOCAL"].dt.date))
         longest = current = 1 if play_dates else 0
         for i in range(1, len(play_dates)):
             if (play_dates[i] - play_dates[i - 1]).days == 1:

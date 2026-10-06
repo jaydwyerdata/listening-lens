@@ -136,6 +136,18 @@ With the extended history loaded and the app looking noticeably more like a real
 
 Broader lesson, consistent with the one from the FR-7 entry above: both bugs here were "looks right, isn't" failures, not startup-time errors. A missing `TRUNCATE`, a hardcoded source filter, an over-broad grant assumption, and a literal-identifier query all installed and ran without complaint; every one of them needed an actual number or an actual error message to catch, not a code review alone.
 
+## 2026-10-07: pre-recording review, one data-quality fix and two display bugs
+
+Reviewing the live app before recording surfaced three problems, all "looks right, isn't" again, none of them errors.
+
+**Household listening in the history.** A children's bedtime album played nightly on the same Spotify account (Dan Gibson's Solitudes, 1,089 plays, plus the same tracks under a second credit, plain "Dan Gibson", 403 plays) ranked second all time and sat at the top of the 6-month window that feeds the Discover tab's Cortex prompt, so it skewed the taste summary as well as the charts. Same class of problem as the 30-second threshold: the export is faithful to what played, not to what the account holder actually listens to. Fix: `parse_extended_history.py` gained a repeatable `--exclude-artist` flag (exact name match, so both credits are listed; nothing excluded by default). The export zip isn't kept in the repo, so the identical rule was applied once to the existing `data/listening_history.csv`: 42,366 rows to 40,874, 1,492 dropped. To reproduce from a fresh export: `python scripts/parse_extended_history.py <export.zip> --exclude-artist "Dan Gibson's Solitudes" --exclude-artist "Dan Gibson"`.
+
+**Top artists sorted A to Z.** `st.bar_chart` sorts a categorical x axis alphabetically, so the chart read Alkaline, Busy Signal, Dan Gibson's Solitudes... directly above a caption saying "most-played first". The Series was sorted correctly; the chart discarded that order. Replaced with an Altair bar chart sorted by play count (`sort="-y"`).
+
+**Hour of day in UTC.** Spotify's `ts` is UTC, and the hour-of-day chart grouped on it raw, which showed zero listening from 13:00 to 19:00 and a peak at 21:00: overnight and early morning in Brisbane, shifted ten hours. The streak had the same flaw at the day boundary. Both now use a `DISPLAY_TIMEZONE` setting (Australia/Brisbane, with a fixed UTC+10 fallback since Brisbane has no daylight saving); the drill-through shows local times too. Window cutoffs stay in UTC, since they compare instants rather than clock times.
+
+**Expected after redeploy** (dry run of the app's own logic against the new CSV, not yet confirmed live): 40,874 plays; all-time top artist Taylor Swift (1,155); 6-month top five Kes, Hezron, Alex Warren, Duane Stephenson, Vex King; hour-of-day peaks at 07:00 and 16:00 to 18:00 with the quiet hours overnight; longest streak 70 days (down from 87, from both the exclusion and local-time day boundaries).
+
 ## Open as of this entry
 
 - FR-6 (the reference/bind path) and the Trends tab drill-through are both built and confirmed live, bind and unbind. Everything through FR-7 and FR-6 is now confirmed working live. Remaining: recording the demo.

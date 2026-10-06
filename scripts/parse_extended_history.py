@@ -49,6 +49,16 @@ from Spotify's docs:
    all. This is consistent with, not a new instance of, the genre gap
    documented in docs/requirements.md OQ-3.
 
+6. Optional artist exclusions (added 2026-10-07). A shared household
+   account mixes in listening that isn't the account holder's taste: in the
+   export this was built against, a children's bedtime album played nightly
+   (Dan Gibson's Solitudes, also credited as plain "Dan Gibson") ranked
+   second overall and dominated every chart. Pass --exclude-artist once per
+   artist name to drop those plays at ingestion. Matching is exact on the
+   export's artist name, so variant credits need listing separately. Nothing
+   is excluded by default, so the script stays a faithful parse unless told
+   otherwise.
+
 Privacy: the export includes conn_country and ip_addr per row (Spotify logs
 the network location of each play). Neither is read into the output CSV.
 This keeps the same privacy boundary already documented in
@@ -93,7 +103,7 @@ def resolve_export_dir(export_path: pathlib.Path) -> pathlib.Path:
     )
 
 
-def parse_audio_files(export_dir: pathlib.Path):
+def parse_audio_files(export_dir: pathlib.Path, excluded_artists=frozenset()):
     audio_files = sorted(export_dir.glob("Streaming_History_Audio_*.json"))
     if not audio_files:
         raise FileNotFoundError(
@@ -105,6 +115,7 @@ def parse_audio_files(export_dir: pathlib.Path):
     rows = []
     dropped_no_metadata = 0
     dropped_under_threshold = 0
+    dropped_excluded = 0
 
     for f in audio_files:
         with open(f, encoding="utf-8") as fh:
@@ -114,6 +125,10 @@ def parse_audio_files(export_dir: pathlib.Path):
             artist = entry.get("master_metadata_album_artist_name")
             if not track or not artist:
                 dropped_no_metadata += 1
+                continue
+
+            if artist in excluded_artists:
+                dropped_excluded += 1
                 continue
 
             ms_played = entry.get("ms_played") or 0
@@ -132,7 +147,7 @@ def parse_audio_files(export_dir: pathlib.Path):
                 }
             )
 
-    return rows, dropped_no_metadata, dropped_under_threshold, len(audio_files)
+    return rows, dropped_no_metadata, dropped_under_threshold, dropped_excluded, len(audio_files)
 
 
 def main():
@@ -146,11 +161,22 @@ def main():
             "the .zip file itself."
         ),
     )
+    parser.add_argument(
+        "--exclude-artist",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help=(
+            "Drop every play by this exact artist name (repeatable). For "
+            "listening on the account that isn't the account holder's own "
+            "taste; see docstring point 6."
+        ),
+    )
     args = parser.parse_args()
 
     export_dir = resolve_export_dir(args.export_path)
-    rows, dropped_no_metadata, dropped_under_threshold, file_count = parse_audio_files(
-        export_dir
+    rows, dropped_no_metadata, dropped_under_threshold, dropped_excluded, file_count = (
+        parse_audio_files(export_dir, frozenset(args.exclude_artist))
     )
 
     if not rows:
@@ -167,7 +193,7 @@ def main():
 
     earliest = min(r["played_at"] for r in rows)
     latest = max(r["played_at"] for r in rows)
-    total_raw = len(rows) + dropped_no_metadata + dropped_under_threshold
+    total_raw = len(rows) + dropped_no_metadata + dropped_under_threshold + dropped_excluded
 
     print(f"Read {file_count} audio history file(s), {total_raw} raw rows.")
     print(f"Dropped {dropped_no_metadata} rows with no track/artist metadata (podcast plays).")
@@ -175,6 +201,11 @@ def main():
         f"Dropped {dropped_under_threshold} rows under the {MIN_MS_PLAYED // 1000}s "
         f"counted-play threshold (skips/previews)."
     )
+    if args.exclude_artist:
+        print(
+            f"Dropped {dropped_excluded} rows by excluded artist(s): "
+            f"{', '.join(args.exclude_artist)}."
+        )
     print(f"Wrote {len(rows)} counted plays to {OUTPUT_PATH}")
     print(f"  date range: {earliest} to {latest}")
     print(
