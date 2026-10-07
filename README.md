@@ -66,7 +66,7 @@ Demo recording prep (speaking script, slides, recording assets) is kept locally 
 
 ## What this demonstrates
 
-Application package lifecycle (`CREATE APPLICATION PACKAGE`, versioning, `CREATE APPLICATION ... USING VERSION`), the manifest and setup script contract, application roles and privilege grants, the references/bind pattern for consumer-owned data, and Streamlit running inside a Native App rather than as a standalone Streamlit app.
+Application package lifecycle (an application package installed and upgraded in development mode with `snow app run`; versioned releases are not part of this build), the manifest and setup script contract, application roles and privilege grants, the references/bind pattern for consumer-owned data, and Streamlit running inside a Native App rather than as a standalone Streamlit app.
 
 ## Redeploying to a new trial account
 
@@ -83,14 +83,12 @@ Everything that defines the app (manifest, setup script, Streamlit code, project
 
 ## Status
 
-Core demo (Phase 1) complete and confirmed live end to end against a real trial account, both tabs, with real personal data.
+Complete for its scope (single account, single user, demo only) and confirmed live end to end on a Snowflake trial account with real data:
 
-`snow app run` installs cleanly, the Trends tab renders real data (ten top artists, an hour-of-day distribution, a 4-day streak, all matching the actual pulled Spotify history), and the Discover tab generates a real Cortex taste summary. Getting there surfaced two genuine gaps along the way, both resolved: the manifest's `snowflake_database: roles: - CORTEX_USER` block declares intent but doesn't grant the role (fixed with `scripts/grant_cortex_access.sql`, now part of the standard install steps above), and Snowflake's trial-account policy separately blocks Cortex AI function calls outright without a payment method on file, an account-tier restriction with no code workaround (fixed by adding a payment method). Full narrative, including every error message hit along the way, is in [`docs/build-log.md`](docs/build-log.md).
+- **Install:** `snow app run` installs and upgrades the app cleanly; `scripts/grant_cortex_access.sql` grants the app its Cortex access.
+- **Trends:** 40,874 real plays from 2018 to 2026 (Extended Streaming History, after dropping podcasts, plays under 30 seconds, and a household bedtime album via `--exclude-artist`). Top artists by window, hour of day in local time, a 70-day longest streak, and a drill-through to the underlying plays.
+- **Discover:** a Cortex taste summary and recommendations, built from the top five artist names only.
+- **Bring your own data:** binding and unbinding a consumer's own table through the reference, both confirmed live.
+- **Demo recorded:** [youtu.be/dOxFxmPNGrs](https://youtu.be/dOxFxmPNGrs).
 
-Update, 2026-09-13: Spotify's Extended Streaming History export arrived and was pulled into scope early (FR-7, was Phase 2/future). `scripts/parse_extended_history.py` parses it into the same schema `pull_spotify_data.py` produces: 42,366 real counted plays from 2018 to 2026, after dropping podcast rows and plays under a 30-second threshold (details in `docs/solution-design.md` section 6). Loading it surfaced two real bugs, both found and fixed the same day: `setup_script.sql` was appending instead of replacing data on every upgrade, and the Trends/Discover queries in `streamlit/listening_lens.py` were still hardcoded to sources that predated FR-7, so the new rows loaded but were never actually read. Confirmed live after both fixes: exactly 42,366 rows loaded, an 87-day longest streak, Discover tab working correctly at this scale. Full narrative in `docs/build-log.md`.
-
-Update, 2026-10-07: the history now excludes household listening that isn't the account holder's own taste (a nightly children's bedtime album), via `parse_extended_history.py`'s new `--exclude-artist` flag, leaving 40,874 counted plays. Hour of day and the streak are now computed in local time rather than raw UTC, and Top artists is sorted by play count. Confirmed live the same day: 40,874 plays, a 70-day longest streak, and the Discover tab's top five no longer skewed by the excluded album. Details in `docs/build-log.md`.
-
-Update, 2026-09-13 (same day): the consumer reference/bind path (FR-6) is built and confirmed live, bind and unbind, along with a new artist drill-through in the Trends tab. Getting the bind working surfaced two more real issues: a `GRANT MONITOR` was mistaken for `GRANT USAGE` on the consumer side, and this app's own first version queried the bound table by literal name instead of Snowflake's `reference()` table function, which is the only way to read through a reference without broader database/schema access. Full narrative, including both fixes, in `docs/build-log.md`.
-
-Remaining work: recording the demo.
+Getting here surfaced several real issues, each found live and fixed: a Cortex role the manifest declares but doesn't grant, a trial-account restriction on AI functions, data appended instead of replaced on upgrade, queries that ignored newly loaded data, reading a bound table by name instead of through `reference()`, and a cache that served the old data source after a bind. The full account, with every error message, is in [`docs/build-log.md`](docs/build-log.md).
