@@ -112,11 +112,16 @@ def get_bound_reference_alias():
 
 
 @st.cache_data(ttl=600)
-def load_history():
+def load_history(alias):
     """Returns (dataframe, source_label). Reads the bound reference table if
     a consumer has bound one (FR-6), otherwise falls back to the bundled
-    sample loaded at install/upgrade."""
-    alias = get_bound_reference_alias()
+    sample loaded at install/upgrade.
+
+    `alias` is resolved by the caller on every run and passed in, so it is
+    part of the cache key (changed 2026-10-07). The first version looked the
+    binding up inside this cached function, so after a bind or unbind the
+    app kept serving the previous data source from cache until the 10-minute
+    TTL expired or the cache happened to be evicted."""
     if alias:
         df = session.sql(
             f"SELECT * FROM reference('listening_history_ref', '{alias}')"
@@ -140,7 +145,7 @@ def top_artists_by_window(real_plays: pd.DataFrame, days) -> pd.Series:
     return filter_by_window(real_plays, days).groupby("ARTIST_NAME").size().sort_values(ascending=False)
 
 
-history, data_source_label = load_history()
+history, data_source_label = load_history(get_bound_reference_alias())
 st.caption(f"Currently showing: {data_source_label}.")
 
 real_plays = history[history["SOURCE"].isin(PLAY_EVENT_SOURCES)].copy()
@@ -204,7 +209,15 @@ with trends_tab:
                 .rename(columns={"PLAYED_AT_LOCAL": "PLAYED_AT"})
                 .head(200)
             )
-            st.dataframe(artist_plays, hide_index=True, use_container_width=True)
+            # Fixed height and natural width (changed 2026-10-07): with
+            # use_container_width and auto height, a very small result (the
+            # 3-row bound test table) triggered a resize loop in Streamlit's
+            # table component, surfacing as "Minified React error #185".
+            st.dataframe(
+                artist_plays,
+                hide_index=True,
+                height=min(len(artist_plays), 10) * 35 + 38,
+            )
             st.caption(
                 f"{len(artist_plays):,} real plays for {drill_artist} in this window "
                 f"(showing up to 200, most recent first)."

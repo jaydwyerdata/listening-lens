@@ -24,14 +24,17 @@ CREATE OR REPLACE TABLE my_own_data.public.sample_listening_history (
     rank         NUMBER
 );
 
+-- SYSDATE() is UTC, matching how the app reads played_at (as UTC, like
+-- Spotify's export). CURRENT_TIMESTAMP() returns the account's session time
+-- zone, which lands these rows hours off once the app converts to local time.
 INSERT INTO my_own_data.public.sample_listening_history
     (played_at, track_name, artist_name, genre_tags, source, rank)
 VALUES
-    (DATEADD(day, 0, CURRENT_TIMESTAMP()), 'Reference Test Track One', 'FR-6 Test Artist', '', 'extended_history', NULL),
-    (DATEADD(day, -1, CURRENT_TIMESTAMP()), 'Reference Test Track Two', 'FR-6 Test Artist', '', 'extended_history', NULL),
-    (DATEADD(day, -2, CURRENT_TIMESTAMP()), 'Reference Test Track Three', 'FR-6 Test Artist', '', 'extended_history', NULL),
-    (DATEADD(day, -3, CURRENT_TIMESTAMP()), 'Another Reference Track', 'Second Test Artist', '', 'extended_history', NULL),
-    (DATEADD(day, -4, CURRENT_TIMESTAMP()), 'Another Reference Track Two', 'Second Test Artist', '', 'extended_history', NULL);
+    (DATEADD(day, 0, SYSDATE()), 'Reference Test Track One', 'FR-6 Test Artist', '', 'extended_history', NULL),
+    (DATEADD(day, -1, SYSDATE()), 'Reference Test Track Two', 'FR-6 Test Artist', '', 'extended_history', NULL),
+    (DATEADD(day, -2, SYSDATE()), 'Reference Test Track Three', 'FR-6 Test Artist', '', 'extended_history', NULL),
+    (DATEADD(day, -3, SYSDATE()), 'Another Reference Track', 'Second Test Artist', '', 'extended_history', NULL),
+    (DATEADD(day, -4, SYSDATE()), 'Another Reference Track Two', 'Second Test Artist', '', 'extended_history', NULL);
 
 -- 2. Bind it. SYSTEM$REFERENCE('TABLE', <fully qualified name>, 'PERSISTENT', <privileges...>)
 --    authorizes the app to access this specific table with the privileges

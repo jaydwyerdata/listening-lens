@@ -150,6 +150,13 @@ Reviewing the live app before recording surfaced three problems, all "looks righ
 
 **Same day, Discover tab polish.** The "You might also like" recommendations rendered as one run-on paragraph, because Streamlit's markdown merges single line breaks. Now split per line and rendered as a list, stripping only genuine list markers the model adds (`-`, `*`, `1.`, `2)`), so an artist name that starts with a digit is left intact. Confirmed live after redeploy.
 
+**Same day, two FR-6 bugs found recording the bind/unbind clip.**
+
+- *Stale data source after unbind.* After `CLEAR` and a page reload, the app kept showing the bound 5-row table ("Showing cache...") before switching back. `load_history()` resolved the binding inside a `@st.cache_data` function with no arguments, so a bind or unbind didn't change the cache key and the previous source was served until the 10-minute TTL or an eviction. Fix: the binding alias is resolved on every run and passed in as the cached function's argument, so each data source caches separately and a bind or unbind always takes effect on the next run. The FR-6 confirmation on 13 Sep passed because nothing had been cached under the other state yet.
+- *Drill-through crash on a tiny result.* With the bound test table, the drill-through table intermittently failed with "Minified React error #185" (maximum update depth exceeded), then rendered fine on a later run at a different window size. Read as a resize loop in Streamlit's table component when auto height and container width interact on a very small table; not reproduced deterministically, so the fix is defensive: an explicit height and natural width.
+
+Also: `scripts/test_fr6_reference_bind.sql` now inserts with `SYSDATE()` (UTC) instead of `CURRENT_TIMESTAMP()`, which returned the account's US Pacific session time and put the test rows at about 02:42 Brisbane time after the app's local-time conversion.
+
 ## Open as of this entry
 
 - FR-6 (the reference/bind path) and the Trends tab drill-through are both built and confirmed live, bind and unbind. Everything through FR-7 and FR-6 is now confirmed working live. Remaining: recording the demo.
