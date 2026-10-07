@@ -2,16 +2,13 @@
 -- Run this once against any fresh Snowflake trial account before `snow app run`.
 -- Idempotent where Snowflake supports it, safe to re-run.
 --
--- Known deviation from the portability design in the ADR/solution design docs:
--- the GRANT below is hardcoded to a specific username (JayDai88) rather than a
--- placeholder. Decided 2026-09-12 to leave it as-is for now since this is a
--- single-account demo; revisit before the repo goes public or before handing
--- this to anyone redeploying to their own trial account. Swap the literal
--- username for <your_username> (and note the substitution in the README) at
--- that point.
+-- The role is granted to whoever runs this script (CURRENT_USER()), so no
+-- username is hardcoded and it works unchanged on any account. Replaced a
+-- hardcoded username on 2026-10-07, before the repo went public.
 
 CREATE ROLE IF NOT EXISTS listening_lens_role;
-GRANT ROLE listening_lens_role TO USER JayDai88;
+SET bootstrap_user = CURRENT_USER();
+GRANT ROLE listening_lens_role TO USER IDENTIFIER($bootstrap_user);
 
 CREATE WAREHOUSE IF NOT EXISTS listening_lens_wh
   WAREHOUSE_SIZE = 'XSMALL'
