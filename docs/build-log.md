@@ -146,9 +146,9 @@ Reviewing the live app before recording surfaced three problems, all "looks righ
 
 **Hour of day in UTC.** Spotify's `ts` is UTC, and the hour-of-day chart grouped on it raw, which showed zero listening from 13:00 to 19:00 and a peak at 21:00: overnight and early morning in Brisbane, shifted ten hours. The streak had the same flaw at the day boundary. Both now use a `DISPLAY_TIMEZONE` setting (Australia/Brisbane, with a fixed UTC+10 fallback since Brisbane has no daylight saving); the drill-through shows local times too. Window cutoffs stay in UTC, since they compare instants rather than clock times.
 
-**After redeploy** (predicted by a dry run of the app's own logic against the new CSV; confirmed live the same day for the play count, sort order, local-time hour-of-day chart and the Discover tab's new top five, longest streak still to be read off the live app): 40,874 plays; all-time top artist Taylor Swift (1,155); 6-month top five Kes, Hezron, Alex Warren, Duane Stephenson, Vex King; hour-of-day peaks at 07:00 and 16:00 to 18:00 with the quiet hours overnight; longest streak 70 days (down from 87, from both the exclusion and local-time day boundaries).
+**After redeploy** (predicted by a dry run of the app's own logic against the new CSV; all confirmed live the same day): 40,874 plays; all-time top artist Taylor Swift (1,155); 6-month top five Kes, Hezron, Alex Warren, Duane Stephenson, Vex King; hour-of-day peaks at 07:00 and 16:00 to 18:00 with the quiet hours overnight; longest streak 70 days (down from 87, from both the exclusion and local-time day boundaries).
 
-**Same day, Discover tab polish.** The "You might also like" recommendations rendered as one run-on paragraph, because Streamlit's markdown merges single line breaks. Now split per line and rendered as a list, stripping only genuine list markers the model adds (`-`, `*`, `1.`, `2)`), so an artist name that starts with a digit is left intact.
+**Same day, Discover tab polish.** The "You might also like" recommendations rendered as one run-on paragraph, because Streamlit's markdown merges single line breaks. Now split per line and rendered as a list, stripping only genuine list markers the model adds (`-`, `*`, `1.`, `2)`), so an artist name that starts with a digit is left intact. Confirmed live after redeploy.
 
 ## Open as of this entry
 
