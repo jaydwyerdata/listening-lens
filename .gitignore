@@ -17,8 +17,7 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Demo-prep materials: interview cue cards, kept private on purpose, never published
-# with the repo even after it goes public. See README "Demo prep" note.
+# Demo recording prep (speaking script, slides, diagram), kept local. See the README note.
 docs/demo-script.md
 docs/architecture-diagram.mmd
 docs/slide-outline.md

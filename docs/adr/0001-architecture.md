@@ -6,12 +6,12 @@
 
 ## Context
 
-This is the second of two demos on the "SE Portfolio Demos" tracker, built to close a named skills gap on the road to a Snowflake Solution Engineer role: hands-on experience with the Native Apps Framework, alongside Iceberg interop. The constraint set is deliberately tight:
+This demo was built to get hands-on with the Snowflake Native Apps Framework, in particular the references and bind mechanism for consumer-owned data. The constraint set is deliberately tight:
 
 - Solo build, evenings and weekends, target is days, not weeks.
 - Runs entirely on a personal 30-day Enterprise-edition trial account. No employer data, no employer tooling, nothing that ties back to the day job.
 - Provider and consumer are both the same account and the same person, so no Marketplace listing, review, or approval is needed. Confirmed against current Snowflake docs: local install and test is fully supported without publishing.
-- The build needs to read as a genuine engineering artifact in an interview, not a tutorial retyped. A generic cost-governance or RBAC-audit app is the expected answer from an SE candidate; a demo tied to something he actually cares about (music) is a better differentiator and a more natural story to tell.
+- The build should read as a genuine engineering artifact, not a tutorial retyped. A generic cost-governance or RBAC-audit app is the obvious choice for this framework; a demo tied to something he actually cares about (music) is more memorable and a more natural story to tell.
 
 Two data-source constraints shaped the decision below:
 
@@ -22,7 +22,7 @@ Two data-source constraints shaped the decision below:
 
 Build **Listening Lens**: a Native App with one Streamlit-in-app page, backed by a small SQL/Snowpark layer, that analyzes listening history and produces a short natural-language "taste summary" using Cortex `COMPLETE`.
 
-Data strategy (see Option analysis below): bundle a working sample dataset pulled from the Spotify Web API so the app is fully functional out of the box, and define one Native App **reference** so a consumer can optionally point the app at their own listening-history table instead. This means the live demo never depends on data that might not have arrived yet, while the architecture still demonstrates the reference/bind pattern, which is the more advanced and more interview-relevant half of the Native Apps Framework story.
+Data strategy (see Option analysis below): bundle a working sample dataset pulled from the Spotify Web API so the app is fully functional out of the box, and define one Native App **reference** so a consumer can optionally point the app at their own listening-history table instead. This means the live demo never depends on data that might not have arrived yet, while the architecture still demonstrates the reference/bind pattern, which is the more advanced and more substantial half of the Native Apps Framework story.
 
 Application structure:
 
@@ -44,7 +44,7 @@ Trial account setup: create the account in a region with direct Cortex model sup
 | Complexity | Low |
 | Build time | Fastest, true "days" |
 | Risk | Lowest, nothing depends on consumer setup |
-| Interview depth | Weaker, skips the reference/bind mechanism entirely |
+| Technical depth | Weaker, skips the reference/bind mechanism entirely |
 
 **Pros:** simplest possible setup script, nothing to go wrong live.
 **Cons:** looks like a personal script wrapped in a Streamlit page, not a demonstration of the parts of the framework a real ISV app would use.
@@ -56,7 +56,7 @@ Trial account setup: create the account in a region with direct Cortex model sup
 | Complexity | Medium |
 | Build time | Same as A once the reference plumbing exists |
 | Risk | Higher for a recorded demo: nothing to show until a table exists and is populated |
-| Interview depth | Strongest on paper, closest to a real Marketplace-style app |
+| Technical depth | Strongest on paper, closest to a real Marketplace-style app |
 
 **Pros:** most realistic architecture, the pattern most SE demos to prospects actually use.
 **Cons:** brittle for a one-take recording; requires setting up and loading a demo table before every run-through, with no fallback if that step fails on camera.
@@ -68,7 +68,7 @@ Trial account setup: create the account in a region with direct Cortex model sup
 | Complexity | Medium |
 | Build time | One extra day over Option A for the reference definition and a toggle in the Streamlit page |
 | Risk | Low: the bundled path always works, the reference path is demonstrated separately and can be re-recorded in isolation if it misbehaves |
-| Interview depth | Same technical talking point as B, without B's live-demo fragility |
+| Technical depth | Same technical talking point as B, without B's live-demo fragility |
 
 **Pros:** the app always has something to show, and the harder feature (references) is still built and demonstrable, just not load-bearing for the main recording.
 **Cons:** slightly more setup script and manifest surface area than a single-path app; worth it here because the whole point of this demo is to touch the parts of the framework that the Iceberg demo does not.
@@ -101,6 +101,6 @@ Practical note: a personal Spotify Developer app in Development Mode can call th
 5. [x] Build `manifest.yml`, `setup_script.sql`, and the bundled-data load path. Confirm `snow app run` installs cleanly as consumer. Confirmed live 2026-09-12.
 6. [x] Build the Streamlit Trends tab against the bundled data. Confirmed live 2026-09-12 with real data.
 7. [x] Build the reference definition and the Discover tab's Cortex call; confirm both work, then decide whether the reference path makes the final recording or stays a secondary clip. Discover tab's Cortex call confirmed live 2026-09-12, working end to end. The reference definition (FR-6, bring-your-own-data) built and confirmed live 2026-09-13: bind and unbind both verified against a throwaway test table, per `scripts/test_fr6_reference_bind.sql`. Kept as a secondary, separately-demonstrated path per the ADR's original risk decision, not folded into the main recording. See `docs/build-log.md` for the two issues hit building it.
-8. [ ] Record the demo (see `docs/demo-script.md`).
-9. [ ] Finish the README, push the repo public, link it from the resume showcase panel on the tracker.
+8. [x] Record the demo. Recorded and published 2026-10-07: https://youtu.be/dOxFxmPNGrs
+9. [x] Finish the README and link the recorded demo, 2026-10-07, ahead of making the repo public.
 10. [x] Build the Extended Streaming History ingestion path (FR-7), pulled forward from P2/future to P1 on 2026-09-13. `scripts/parse_extended_history.py` built and confirmed against the real export: 42,366 counted plays written after dropping podcast rows and sub-30-second skips. Loading it surfaced two real bugs, both fixed and confirmed live 2026-09-13: `setup_script.sql` was appending instead of replacing on every upgrade (missing `TRUNCATE`), and every Trends/Discover query in `streamlit/listening_lens.py` was still hardcoded to sources that predated FR-7, so the new rows loaded but were never read. See `docs/build-log.md` for the full diagnosis. Final numbers: 42,366 rows loaded exactly, an 87-day longest streak, Discover tab confirmed working at this scale.

@@ -12,8 +12,8 @@ This is the requirements baseline for Listening Lens, a Snowflake Native App dem
 
 1. Produce a working, installable Snowflake Native App that demonstrates the application package lifecycle, the setup script contract, application roles, and Streamlit-in-Snowflake, end to end.
 2. Demonstrate the Native App references/bind mechanism, the more advanced half of the framework that a bundled-data-only demo would skip.
-3. Produce a public repository, documented to a standard a hiring manager or SE interviewer can read and understand without a walkthrough.
-4. Produce a short recorded demo suitable for linking from a resume.
+3. Produce a public repository, documented to a standard a technical reviewer can read and understand without a walkthrough.
+4. Produce a short recorded demo that can be shared alongside the repo.
 5. Do all of the above without depending on anything outside Jay's control (data-export queues, Marketplace review, employer systems).
 
 ## Non-Goals
@@ -79,7 +79,7 @@ Support loading the official Spotify Extended Streaming History export (JSON) di
 
 **NFR-1: Data boundary**
 Only the account owner's own data is processed. No employer accounts, systems, or data are touched at any point in build, test, or demo.
-- [ ] Repo and demo recording contain no references to employer account identifiers, warehouses, or data.
+- [x] Repo and demo recording contain no references to employer account identifiers, warehouses, or data. Verified 2026-10-07 before the repo went public: a full scan of the repo and its git history, and the recording checked frame by frame for account identifiers.
 
 **NFR-2: Portability**
 The project must be fully redeployable to a new Snowflake trial account using only what's committed to the repo, excluding local credentials and generated data files.

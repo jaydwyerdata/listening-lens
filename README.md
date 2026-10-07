@@ -56,11 +56,11 @@ listening-lens/
     build-log.md              # what actually happened running this live, vs. what the docs predicted
 ```
 
-Demo prep (speaking script, slide outline, architecture diagram used for interview prep) is kept locally, gitignored on purpose, not part of this repo. The engineering docs above are the public record; the cue cards for talking about it aren't.
+Demo recording prep (speaking script, slides, recording assets) is kept locally and gitignored. The engineering docs above are the public record.
 
 ## Why these choices
 
-- **Bundled sample data, with an optional reference for bring-your-own data.** The app always has something to show without depending on Spotify's data-export queue (which can take up to 30 days). The reference path still exists and is demonstrated, because it's the more advanced half of the framework and the more interesting thing to talk about in an interview.
+- **Bundled sample data, with an optional reference for bring-your-own data.** The app always has something to show without depending on Spotify's data-export queue (which can take up to 30 days). The reference path still exists and is demonstrated, because it's the more advanced half of the framework and the more interesting thing to demonstrate.
 - **Cortex `COMPLETE` for the summary, not a custom model.** The point of this demo is the Native Apps Framework, not model training. Cortex keeps the AI feature honest: a few lines of SQL, not a project in itself.
 - **No external cloud storage, no Marketplace listing.** Provider and consumer are the same account, which is the supported local-testing path in current Snowflake docs and removes an entire review/approval process that isn't the point of this demo.
 
