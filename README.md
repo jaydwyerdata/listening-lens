@@ -2,6 +2,8 @@
 
 A Snowflake Native App that turns your Spotify listening history into a Streamlit dashboard, with a short AI-generated "taste summary" powered by Snowflake Cortex.
 
+**Watch the demo (2:49):** [youtu.be/dOxFxmPNGrs](https://youtu.be/dOxFxmPNGrs). Install, the Trends and Discover tabs on eight years of real listening, then binding a consumer's own table through a reference.
+
 Built as a portfolio demo of the Snowflake Native Apps Framework: application packages, the setup script lifecycle, the references/bind mechanism for consumer-owned data, and Streamlit-in-Snowflake, all running on a personal 30-day trial account with no external cloud storage and no Marketplace listing required.
 
 Design rationale and options considered are in [`docs/adr/0001-architecture.md`](docs/adr/0001-architecture.md). Scope and requirements are in [`docs/requirements.md`](docs/requirements.md), and how the pieces fit together is in [`docs/solution-design.md`](docs/solution-design.md).
