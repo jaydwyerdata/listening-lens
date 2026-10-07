@@ -46,6 +46,7 @@ they compare instants, not local clock times.
 import datetime
 
 import json
+import re
 
 import altair as alt
 import pandas as pd
@@ -277,7 +278,17 @@ with discover_tab:
                 taste_part, rec_part = summary_text.split("Recommendations:", 1)
                 st.write(taste_part.strip())
                 st.subheader("You might also like")
-                st.write(rec_part.strip())
+                # One recommendation per line, as the prompt asks. Rendered as a
+                # markdown list, since Streamlit's markdown merges single line
+                # breaks into one paragraph (added 2026-10-07). Leading bullets
+                # or numbering the model adds itself are stripped first, so
+                # they don't double up.
+                rec_lines = [
+                    re.sub(r"^\s*(?:[-*\u2022]|\d+[.)])\s+", "", line).strip()
+                    for line in rec_part.strip().splitlines()
+                    if line.strip()
+                ]
+                st.markdown("\n".join(f"- {line}" for line in rec_lines))
             else:
                 st.write(summary_text)
 
