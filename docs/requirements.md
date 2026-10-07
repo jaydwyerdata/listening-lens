@@ -73,6 +73,7 @@ Support loading the official Spotify Extended Streaming History export (JSON) di
 - [x] Bundled-vs-alongside decided: alongside was never actually necessary. The new script writes to the exact same `data/listening_history.csv` path `pull_spotify_data.py` does, so it's a drop-in replacement selected by which script you run, not a runtime toggle. No changes needed to `manifest.yml` or `setup_script.sql`.
 - [x] Re-ran `snow app run` against the extended-history CSV, confirmed 2026-09-13 the load itself was broken two ways: the table appended instead of replacing (missing `TRUNCATE`, table held 42,696 rows, old 330 plus new 42,366) and every Trends/Discover query still hardcoded a source that predated FR-7, so the new rows were loaded but never read by any chart. Both fixed in `app/setup_script.sql` and `streamlit/listening_lens.py`; see `docs/build-log.md`.
 - [x] Re-verified live 2026-09-13, both fixes confirmed working: row count exactly 42,366 (the `TRUNCATE` fix holds, no more duplicate rows), longest streak now 87 days (a believable number given the volume, not the stale 4), Discover tab's Cortex call still succeeds at this scale, top artists render without error.
+- [x] Revised 2026-10-07: household listening that isn't the account holder's own taste (a nightly children's bedtime album) is now excluded at ingestion via `--exclude-artist`. Confirmed live after redeploy: 40,874 plays, longest streak 70 days (also reflecting local-time day boundaries), Discover's top five no longer includes the excluded album.
 
 ## Non-Functional Requirements
 
