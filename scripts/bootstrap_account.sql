@@ -4,7 +4,8 @@
 --
 -- The role is granted to whoever runs this script (CURRENT_USER()), so no
 -- username is hardcoded and it works unchanged on any account. Replaced a
--- hardcoded username on 2026-10-07, before the repo went public.
+-- hardcoded username on 2026-10-07, before the repo went public; confirmed
+-- live the same day.
 
 CREATE ROLE IF NOT EXISTS listening_lens_role;
 SET bootstrap_user = CURRENT_USER();
