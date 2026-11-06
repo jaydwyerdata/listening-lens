@@ -1,7 +1,19 @@
 # Secrets and local config
 .env
+.env.*
+!.env.example
 .snowflake/
 scripts/.cache-listening-lens
+*.pem
+*.p8
+*.key
+secrets.toml
+credentials.json
+.streamlit/secrets.toml
+
+# Local-only Claude context
+CLAUDE.local.md
+.claude/settings.local.json
 
 # Generated data, not committed by design (see docs/requirements.md NFR-2)
 data/
@@ -13,7 +25,13 @@ __pycache__/
 .venv/
 venv/
 
-# OS
+# Archives and snapshots
+*.zip
+*.tar.gz
+
+# Editor and OS
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
 
