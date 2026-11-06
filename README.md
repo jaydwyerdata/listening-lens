@@ -17,6 +17,8 @@ Design rationale and options considered are in [`docs/adr/0001-architecture.md`]
 ## Quick start
 
 > Prerequisites: a Snowflake account (Enterprise edition or higher, a region with direct Cortex model support), the Snowflake CLI, Python 3.10+, a Spotify Developer account.
+>
+> The `snow` CLI is required here, not optional: Native App install and upgrade (`snow app run`) has no Snowsight-only equivalent, so this repo is a stated exception to the usual "no CLI required" rule.
 
 1. Clone this repo.
 2. Run [`scripts/bootstrap_account.sql`](scripts/bootstrap_account.sql) once against your Snowflake account (role, warehouse, and the privileges needed to build and install a Native App without a Marketplace listing).

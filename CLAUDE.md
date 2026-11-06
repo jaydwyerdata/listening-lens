@@ -17,7 +17,7 @@ A Snowflake Native App that turns a personal Spotify listening history into a St
 ## Project specifics
 
 - Listening history is the author's own real Spotify data, not a synthetic or fictional dataset. It is pulled via the Spotify Web API or parsed from a Spotify Extended Streaming History export; see `docs/requirements.md` for why it is not committed to the repo.
-- Installing and upgrading the app requires the `snow` CLI (Native App deployment has no Snowsight-only path). This is a documented exception to the usual no-CLI rule; see `docs/adr/0001-architecture.md`.
+- Installing and upgrading the app requires the `snow` CLI (Native App deployment has no Snowsight-only path). This is a stated exception to the usual no-CLI rule, decided for Native App repos generally; see `docs/adr/0001-architecture.md`.
 - Requires a Snowflake Enterprise-edition trial account in a region with direct Cortex model support.
 
 ## Status
