@@ -18,13 +18,13 @@ This is the requirements baseline for Listening Lens, a Snowflake Native App dem
 
 ## Non-Goals
 
-This is a solo portfolio demo, not a product. The following are explicitly out of scope, not oversights:
+This is a solo, self-directed build, not a product. The following are explicitly out of scope, not oversights:
 
 - **Multi-tenant or concurrent-consumer support.** The app is built, installed, and demoed within one account by one person. No load testing, no concurrency handling.
-- **Cost optimization or production monitoring.** No warehouse right-sizing work, no alerting, no observability beyond what's needed to debug the build.
+- **Cost optimisation or production monitoring.** No warehouse right-sizing work, no alerting, no observability beyond what's needed to debug the build.
 - **Production-grade security hardening.** Privileges requested follow least-privilege practice (see NFR-5), but this is not a security review target and won't get one.
 - **Full Extended Streaming History ingestion in v1.** Was scoped as a Phase 2/future item (FR-7) since the export could take up to 30 days. Revised 2026-09-13: it arrived before recording, so this line no longer holds. See FR-7 and OQ-2.
-- **Any employer data, account, or tooling.** Everything runs on a personal trial account, entirely separate from Jay's actual job.
+- **Any employer data, account, or tooling.** Everything runs on a personal trial account, with no connection to any employer system.
 
 ## Personas
 
@@ -86,7 +86,7 @@ The project must be fully redeployable to a new Snowflake trial account using on
 - [ ] Following the README's "Redeploying to a new trial account" steps on a fresh trial account produces a working install with no undocumented manual steps.
 
 **NFR-3: Documentation standard**
-Every component is documented to a standard suitable for public portfolio review.
+Every component is documented to a standard suitable for public review.
 - [ ] A reader unfamiliar with the project can understand what it does, why it was built this way, and how to run it, using only the repo's docs (README, this document, the ADR, the demo script).
 
 **NFR-4: Usability (qualitative)**
