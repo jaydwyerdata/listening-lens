@@ -9,7 +9,7 @@
 This demo was built to get hands-on with the Snowflake Native Apps Framework, in particular the references and bind mechanism for consumer-owned data. The constraint set is deliberately tight:
 
 - Solo build, evenings and weekends, target is days, not weeks.
-- Runs entirely on a personal 30-day Enterprise-edition trial account. No employer data, no employer tooling, nothing that ties back to the day job.
+- Runs entirely on a personal 30-day Enterprise-edition trial account. No employer data, no employer tooling.
 - Provider and consumer are both the same account and the same person, so no Marketplace listing, review, or approval is needed. Confirmed against current Snowflake docs: local install and test is fully supported without publishing.
 - The build should read as a genuine engineering artifact, not a tutorial retyped. A generic cost-governance or RBAC-audit app is the obvious choice for this framework; a demo tied to something he actually cares about (music) is more memorable and a more natural story to tell.
 
@@ -20,7 +20,7 @@ Two data-source constraints shaped the decision below:
 
 ## Decision
 
-Build **Listening Lens**: a Native App with one Streamlit-in-app page, backed by a small SQL/Snowpark layer, that analyzes listening history and produces a short natural-language "taste summary" using Cortex `COMPLETE`.
+Build **Listening Lens**: a Native App with one Streamlit-in-app page, backed by a small SQL/Snowpark layer, that analyses listening history and produces a short natural-language "taste summary" using Cortex `COMPLETE`.
 
 Data strategy (see Option analysis below): bundle a working sample dataset pulled from the Spotify Web API so the app is fully functional out of the box, and define one Native App **reference** so a consumer can optionally point the app at their own listening-history table instead. This means the live demo never depends on data that might not have arrived yet, while the architecture still demonstrates the reference/bind pattern, which is the more advanced and more substantial half of the Native Apps Framework story.
 

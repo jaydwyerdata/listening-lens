@@ -31,7 +31,7 @@ from Spotify's docs:
    (video content, 443 rows in the export this was built against). Not read
    by this script at all: out of scope for a music listening app, and a
    different content type (podcast video / video podcasts) than what the
-   Trends and Discover tabs are built to analyze.
+   Trends and Discover tabs are built to analyse.
 4. Roughly two-thirds of raw audio rows (89,466 of 131,832 rows with real
    track/artist metadata, in the export this was built against) have
    ms_played under 30 seconds: previews, accidental taps, and skips, not

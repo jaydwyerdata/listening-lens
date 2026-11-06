@@ -4,7 +4,7 @@ A Snowflake Native App that turns your Spotify listening history into a Streamli
 
 **Watch the demo (2:49):** [youtu.be/dOxFxmPNGrs](https://youtu.be/dOxFxmPNGrs). Install, the Trends and Discover tabs on eight years of real listening, then binding a consumer's own table through a reference.
 
-Built as a portfolio demo of the Snowflake Native Apps Framework: application packages, the setup script lifecycle, the references/bind mechanism for consumer-owned data, and Streamlit-in-Snowflake, all running on a personal 30-day trial account with no external cloud storage and no Marketplace listing required.
+A self-directed build exploring the Snowflake Native Apps Framework: application packages, the setup script lifecycle, the references/bind mechanism for consumer-owned data, and Streamlit-in-Snowflake, all running on a personal 30-day trial account with no external cloud storage and no Marketplace listing required.
 
 Design rationale and options considered are in [`docs/adr/0001-architecture.md`](docs/adr/0001-architecture.md). Scope and requirements are in [`docs/requirements.md`](docs/requirements.md), and how the pieces fit together is in [`docs/solution-design.md`](docs/solution-design.md).
 
@@ -17,6 +17,8 @@ Design rationale and options considered are in [`docs/adr/0001-architecture.md`]
 ## Quick start
 
 > Prerequisites: a Snowflake account (Enterprise edition or higher, a region with direct Cortex model support), the Snowflake CLI, Python 3.10+, a Spotify Developer account.
+>
+> The `snow` CLI is required here, not optional: Native App install and upgrade (`snow app run`) has no Snowsight-only equivalent, so this repo is a stated exception to the usual "no CLI required" rule.
 
 1. Clone this repo.
 2. Run [`scripts/bootstrap_account.sql`](scripts/bootstrap_account.sql) once against your Snowflake account (role, warehouse, and the privileges needed to build and install a Native App without a Marketplace listing).
@@ -92,3 +94,14 @@ Complete for its scope (single account, single user, demo only) and confirmed li
 - **Demo recorded:** [youtu.be/dOxFxmPNGrs](https://youtu.be/dOxFxmPNGrs).
 
 Getting here surfaced several real issues, each found live and fixed: a Cortex role the manifest declares but doesn't grant, a trial-account restriction on AI functions, data appended instead of replaced on upgrade, queries that ignored newly loaded data, reading a bound table by name instead of through `reference()`, and a cache that served the old data source after a bind. The full account, with every error message, is in [`docs/build-log.md`](docs/build-log.md).
+
+## Design documents
+
+- [Architecture decision record](docs/adr/0001-architecture.md)
+- [Requirements](docs/requirements.md)
+- [Solution design](docs/solution-design.md)
+- [Build log](docs/build-log.md)
+
+## Licence
+
+MIT, see [LICENSE](LICENSE).

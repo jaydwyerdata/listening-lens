@@ -10,7 +10,7 @@ Listening Lens is a Snowflake Native App: a Streamlit dashboard, backed by SQL/S
 
 ## 2. Goals
 
-Same goals as the requirements document, restated briefly for context: a working, installable Native App that demonstrates the application package lifecycle and the references/bind mechanism, documented and demoed to a public-portfolio standard, buildable in days by one person on a disposable trial account.
+Same goals as the requirements document, restated briefly for context: a working, installable Native App that demonstrates the application package lifecycle and the references/bind mechanism, documented and demoed to a publishable standard, buildable in days by one person on a disposable trial account.
 
 ## 3. System Context
 
@@ -105,7 +105,7 @@ Single core table, `core.listening_history`, shape shared by both the bundled da
 
 **Added 2026-09-13: `extended_history` rows.** Spotify's Extended Streaming History export (requested 2026-09-11, arrived 2026-09-13) is parsed by `scripts/parse_extended_history.py` into the same schema as the API-sourced rows above, so no table or column changes were needed. Two decisions came out of actually inspecting the real export, not from the design doc:
 
-- The export includes a separate `Streaming_History_Video_*.json` set (video content) alongside the audio history. Not read at all: out of scope for a music listening app, and a different content type than what the Trends and Discover tabs analyze.
+- The export includes a separate `Streaming_History_Video_*.json` set (video content) alongside the audio history. Not read at all: out of scope for a music listening app, and a different content type than what the Trends and Discover tabs analyse.
 - Of 131,935 raw audio rows, 103 had no track/artist metadata (podcast plays that Spotify's export mixes into the audio history file) and were dropped. Of the remaining rows, 89,466 (67.9%) had `ms_played` under 30 seconds, essentially skips or previews rather than listens. There's no official Spotify-published threshold for what counts as a play; 30 seconds is the commonly cited industry figure and matches the intuitive line between "skipped past it" and "played it," so rows under it are dropped entirely rather than kept with a flag, to avoid changing the existing Trends tab queries. 42,366 rows survive both filters, spanning 2018-06-04 to 2026-09-11, a large jump from the roughly 330-row API-sourced sample.
 - **Added 2026-10-07:** `parse_extended_history.py --exclude-artist` drops plays by named artists at ingestion. The bundled dataset excludes a children's bedtime album played nightly on the same account (two artist credits, 1,492 plays), which had been ranking second all time and skewing the Discover prompt. 40,874 counted plays remain.
 - `genre_tags` stays empty for `extended_history` rows too; the export has no genre field, consistent with the existing gap (OQ-3), not a new one.
@@ -141,4 +141,4 @@ This document maps to `docs/requirements.md` as follows: sections 3 to 6 describ
 
 ## 11. Out of Scope
 
-Same non-goals as the requirements document: no multi-tenant or concurrent-consumer support, no cost optimization or production monitoring, no security-review-grade hardening, no Extended Streaming History ingestion in v1. See `docs/requirements.md` for the full list and rationale.
+Same non-goals as the requirements document: no multi-tenant or concurrent-consumer support, no cost optimisation or production monitoring, no security-review-grade hardening, no Extended Streaming History ingestion in v1. See `docs/requirements.md` for the full list and rationale.
